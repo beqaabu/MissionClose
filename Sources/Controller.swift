@@ -244,10 +244,34 @@ final class Controller {
         case .minimize:
             ok = window.set(kAXMinimizedAttribute, true) || window.pressButton(kAXMinimizeButtonAttribute)
         case .fullScreen:
-            ok = window.set("AXFullScreen", true) || window.pressButton(kAXFullScreenButtonAttribute)
+            // Mission Control aborts a full-screen transition, so leave it first: pressing the thumbnail
+            // does what clicking it would (exit and bring that window forward), then go full screen.
+            hideUntilSettled()
+            ok = thumb.element.press()
+            if ok { enterFullScreen(window, of: target.app, deadline: Date().addingTimeInterval(2)) }
         }
         if !ok { NSSound.beep() }
         // Mission Control updates its thumbnails on its own; the next tick picks up the change.
+    }
+
+    /// Waits for Mission Control to close, then makes the window full screen.
+    private func enterFullScreen(_ window: AXUIElement, of app: NSRunningApplication, deadline: Date) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            guard let self else { return }
+            if MissionControl.root() != nil {
+                if Date() < deadline { self.enterFullScreen(window, of: app, deadline: deadline) } else { NSSound.beep() }
+                return
+            }
+            // Let the exit animation finish before starting the full-screen one.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                app.activate()
+                _ = window.set(kAXMainAttribute, true)
+                AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+                if !window.set("AXFullScreen", true) && !window.pressButton(kAXFullScreenButtonAttribute) {
+                    NSSound.beep()
+                }
+            }
+        }
     }
 
     /// First quit request arms the close button; a second one on the same thumbnail within 3 seconds goes through.
