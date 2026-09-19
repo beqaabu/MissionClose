@@ -26,6 +26,16 @@ extension AXUIElement {
     }
 
     func press() -> Bool { AXUIElementPerformAction(self, kAXPressAction as CFString) == .success }
+
+    /// Presses one of a window's title bar buttons, e.g. kAXCloseButtonAttribute.
+    func pressButton(_ attribute: String) -> Bool {
+        guard let button = value(attribute), CFGetTypeID(button) == AXUIElementGetTypeID() else { return false }
+        return (button as! AXUIElement).press()
+    }
+
+    func set(_ attribute: String, _ flag: Bool) -> Bool {
+        AXUIElementSetAttributeValue(self, attribute as CFString, (flag ? kCFBooleanTrue : kCFBooleanFalse)!) == .success
+    }
 }
 
 /// Lets AXUIElement be used as a dictionary key (CFEqual/CFHash semantics).

@@ -24,9 +24,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         permissionItem.target = self
         menu.addItem(permissionItem)
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Click ✕ in Mission Control to close a window", action: nil, keyEquivalent: "")
+        menu.addItem(withTitle: "Hover a thumbnail in Mission Control to close, minimize or full-screen it", action: nil, keyEquivalent: "")
         menu.addItem(withTitle: "Option-click ✕ to quit the app", action: nil, keyEquivalent: "")
-        menu.addItem(withTitle: "Or hover a thumbnail and press ⌘W / ⌘Q", action: nil, keyEquivalent: "")
+        menu.addItem(withTitle: "Or press ⌘W / ⌘Q / ⌘M while hovering", action: nil, keyEquivalent: "")
         menu.addItem(.separator())
         loginItem.target = self
         menu.addItem(loginItem)

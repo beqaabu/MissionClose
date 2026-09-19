@@ -2,12 +2,13 @@
 
 Close windows straight from Mission Control on macOS.
 
-Swipe up with three fingers (or press F3 / Ctrl+↑), hover a window thumbnail, and click the ✕ in its corner.
+Swipe up with three fingers (or press F3 / Ctrl+↑) and hover a window thumbnail: traffic-light buttons appear in its corner.
 No more opening a window just to hit its red button.
 
-- **Click ✕**: closes that window, same as its red traffic-light button
+- **✕ close**: closes that window, same as its red traffic-light button
 - **Option-click ✕**: quits the whole app (the ✕ turns into ⏻ while Option is held)
-- **⌘W / ⌘Q** while hovering a thumbnail: close that window / quit its app
+- **− minimize** and **⤢ full screen**: same as the yellow and green buttons
+- **⌘W / ⌘Q / ⌘M** while hovering a thumbnail: close the window / quit its app / minimize it
 
 MissionClose lives in the menu bar and starts at login (toggle it from the menu).
 
@@ -43,7 +44,7 @@ macOS has no API for Mission Control, so MissionClose works from the outside:
 - **Clicking.** Mission Control takes mouse clicks itself, so a session event tap (enabled only while Mission Control is open)
   catches clicks on a ✕ before Mission Control sees them.
 - **Closing.** The thumbnail is matched to a real window by title (falling back to app name and aspect ratio),
-  and that window's close button is pressed through the accessibility API.
+  and that window's close button is pressed (or it's minimized / made full screen) through the accessibility API.
 
 ## Limitations
 

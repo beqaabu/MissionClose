@@ -19,7 +19,7 @@ final class Controller {
     private struct Thumb {
         let element: AXUIElement
         let frame: CGRect
-        let panel: CloseButtonPanel
+        let panel: WindowButtonsPanel
     }
 
     private var thumbs: [ElementKey: Thumb] = [:]
@@ -92,7 +92,7 @@ final class Controller {
         for element in MissionControl.thumbnails(in: mc) {
             guard let frame = element.frame else { continue }
             let key = ElementKey(element: element)
-            let panel = thumbs[key]?.panel ?? CloseButtonPanel()
+            let panel = thumbs[key]?.panel ?? WindowButtonsPanel()
             panel.place(on: frame)
             next[key] = Thumb(element: element, frame: frame, panel: panel)
         }
@@ -103,13 +103,13 @@ final class Controller {
         updateHover(at: CGEvent(source: nil)?.location ?? .zero)
     }
 
-    /// Only the thumbnail under the pointer shows its ✕, and only while Mission Control is at rest.
+    /// Only the thumbnail under the pointer shows its buttons, and only while Mission Control is at rest.
     private func updateHover(at point: CGPoint) {
         for thumb in thumbs.values {
             let active = isSettled && thumb.frame.union(thumb.panel.axFrame).contains(point)
-            thumb.panel.view.hovering = active && thumb.panel.axFrame.contains(point)
+            thumb.panel.updateHover(at: active ? point : nil)
             if active, !thumb.panel.isVisible {
-                thumb.panel.view.quitMode = CGEventSource.flagsState(.combinedSessionState).contains(.maskAlternate)
+                thumb.panel.quitMode = CGEventSource.flagsState(.combinedSessionState).contains(.maskAlternate)
                 thumb.panel.orderFrontRegardless()
             }
             if !active, thumb.panel.isVisible { thumb.panel.orderOut(nil) }
@@ -126,16 +126,17 @@ final class Controller {
             if !thumbs.isEmpty { updateHover(at: event.location) }
             return false
         case .leftMouseDown:
-            guard let hit = thumbs.values.first(where: { $0.panel.isVisible && $0.panel.axFrame.contains(event.location) })
+            guard let thumb = thumbs.values.first(where: { $0.panel.isVisible && $0.panel.button(at: event.location) != nil }),
+                  let button = thumb.panel.button(at: event.location)
             else { hideUntilSettled(); return false } // most clicks in Mission Control dismiss it
             swallowingMouseUp = true
             let quitApp = event.flags.contains(.maskAlternate)
-            DispatchQueue.main.async { [weak self] in self?.close(hit.element, quitApp: quitApp) }
+            DispatchQueue.main.async { [weak self] in self?.perform(button.action, on: thumb.element, quitApp: quitApp) }
             return true
         case .keyDown:
-            // ⌘W / ⌘Q act on the thumbnail under the pointer.
-            if let quitApp = Self.shortcut(event), let thumb = thumb(at: event.location) {
-                DispatchQueue.main.async { [weak self] in self?.close(thumb.element, quitApp: quitApp) }
+            // ⌘W / ⌘Q / ⌘M act on the thumbnail under the pointer.
+            if let (action, quitApp) = Self.shortcut(event), let thumb = thumb(at: event.location) {
+                DispatchQueue.main.async { [weak self] in self?.perform(action, on: thumb.element, quitApp: quitApp) }
                 return true
             }
             if !thumbs.isEmpty { hideUntilSettled() } // Esc and other keys dismiss Mission Control
@@ -145,7 +146,7 @@ final class Controller {
             return false
         case .flagsChanged:
             let quitMode = event.flags.contains(.maskAlternate)
-            thumbs.values.forEach { $0.panel.view.quitMode = quitMode }
+            thumbs.values.forEach { $0.panel.quitMode = quitMode }
             return false
         case .leftMouseUp:
             defer { swallowingMouseUp = false }
@@ -160,18 +161,19 @@ final class Controller {
         return thumbs.values.first { $0.frame.union($0.panel.axFrame).contains(point) }
     }
 
-    /// ⌘W -> close the window (false), ⌘Q -> quit the app (true), nil for anything else.
-    private static func shortcut(_ event: CGEvent) -> Bool? {
+    /// ⌘W closes the window, ⌘Q quits the app, ⌘M minimizes; nil for anything else.
+    private static func shortcut(_ event: CGEvent) -> (WindowAction, quitApp: Bool)? {
         let modifiers = event.flags.intersection([.maskCommand, .maskControl, .maskAlternate, .maskShift])
         guard modifiers == .maskCommand else { return nil }
         // Match the typed letter; on non-Latin layouts fall back to the W/Q key positions like macOS shortcuts do.
         let typed = NSEvent(cgEvent: event)?.charactersIgnoringModifiers?.lowercased() ?? ""
         let letter = typed.unicodeScalars.allSatisfy(\.isASCII) && !typed.isEmpty
             ? typed
-            : [13: "w", 12: "q"][event.getIntegerValueField(.keyboardEventKeycode)] ?? ""
+            : [13: "w", 12: "q", 46: "m"][event.getIntegerValueField(.keyboardEventKeycode)] ?? ""
         switch letter {
-        case "w": return false
-        case "q": return true
+        case "w": return (.close, false)
+        case "q": return (.close, true)
+        case "m": return (.minimize, false)
         default: return nil
         }
     }
@@ -214,19 +216,25 @@ final class Controller {
         }
     }
 
-    private func close(_ thumb: AXUIElement, quitApp: Bool) {
+    private func perform(_ action: WindowAction, on thumb: AXUIElement, quitApp: Bool) {
         let cached = windowIndex ?? []
         guard let target = WindowIndex.match(thumb, in: cached) ?? WindowIndex.match(thumb, in: WindowIndex.all()) else {
             NSSound.beep()
             return
         }
-        if quitApp {
-            target.app.terminate()
-        } else if let button = target.window.value(kAXCloseButtonAttribute), CFGetTypeID(button) == AXUIElementGetTypeID() {
-            if !(button as! AXUIElement).press() { NSSound.beep() }
-        } else {
-            NSSound.beep()
+        let window = target.window
+        let ok: Bool
+        switch action {
+        case .close where quitApp:
+            ok = target.app.terminate()
+        case .close:
+            ok = window.pressButton(kAXCloseButtonAttribute)
+        case .minimize:
+            ok = window.set(kAXMinimizedAttribute, true) || window.pressButton(kAXMinimizeButtonAttribute)
+        case .fullScreen:
+            ok = window.set("AXFullScreen", true) || window.pressButton(kAXFullScreenButtonAttribute)
         }
+        if !ok { NSSound.beep() }
         // Mission Control updates its thumbnails on its own; the next tick picks up the change.
     }
 
