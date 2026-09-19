@@ -6,6 +6,7 @@ import ApplicationServices
 //   option+click  -> quit the whole app
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    private let controller = Controller()
     private var statusItem: NSStatusItem!
     private let permissionItem = NSMenuItem(title: "", action: #selector(openAccessibilitySettings), keyEquivalent: "")
 
@@ -21,8 +22,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         permissionItem.target = self
         menu.addItem(permissionItem)
         menu.addItem(.separator())
+        menu.addItem(withTitle: "Click ✕ in Mission Control to close a window", action: nil, keyEquivalent: "")
+        menu.addItem(withTitle: "Option-click ✕ to quit the app", action: nil, keyEquivalent: "")
+        menu.addItem(.separator())
         menu.addItem(withTitle: "Quit MissionClose", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = menu
+
+        controller.start()
     }
 
     func menuWillOpen(_ menu: NSMenu) {
