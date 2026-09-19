@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         _ = AXIsProcessTrustedWithOptions(options)
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "xmark.rectangle", accessibilityDescription: "MissionClose")
+        statusItem.button?.image = MenuBarIcon.make()
 
         let menu = NSMenu()
         menu.delegate = self
