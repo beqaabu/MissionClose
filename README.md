@@ -6,7 +6,8 @@ Swipe up with three fingers (or press F3 / Ctrl+↑), hover a window thumbnail, 
 No more opening a window just to hit its red button.
 
 - **Click ✕**: closes that window, same as its red traffic-light button
-- **Option-click ✕**: quits the whole app
+- **Option-click ✕**: quits the whole app (the ✕ turns into ⏻ while Option is held)
+- **⌘W / ⌘Q** while hovering a thumbnail: close that window / quit its app
 
 MissionClose lives in the menu bar and starts at login (toggle it from the menu).
 

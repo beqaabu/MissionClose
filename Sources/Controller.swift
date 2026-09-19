@@ -132,7 +132,15 @@ final class Controller {
             let quitApp = event.flags.contains(.maskAlternate)
             DispatchQueue.main.async { [weak self] in self?.close(hit.element, quitApp: quitApp) }
             return true
-        case .keyDown, .scrollWheel: // Esc, space switching, or the start of a swipe
+        case .keyDown:
+            // ⌘W / ⌘Q act on the thumbnail under the pointer.
+            if let quitApp = Self.shortcut(event), let thumb = thumb(at: event.location) {
+                DispatchQueue.main.async { [weak self] in self?.close(thumb.element, quitApp: quitApp) }
+                return true
+            }
+            if !thumbs.isEmpty { hideUntilSettled() } // Esc and other keys dismiss Mission Control
+            return false
+        case .scrollWheel: // space switching, or the start of a swipe
             if !thumbs.isEmpty { hideUntilSettled() }
             return false
         case .flagsChanged:
@@ -144,6 +152,27 @@ final class Controller {
             return swallowingMouseUp
         default:
             return false
+        }
+    }
+
+    private func thumb(at point: CGPoint) -> Thumb? {
+        guard isSettled else { return nil }
+        return thumbs.values.first { $0.frame.union($0.panel.axFrame).contains(point) }
+    }
+
+    /// ⌘W -> close the window (false), ⌘Q -> quit the app (true), nil for anything else.
+    private static func shortcut(_ event: CGEvent) -> Bool? {
+        let modifiers = event.flags.intersection([.maskCommand, .maskControl, .maskAlternate, .maskShift])
+        guard modifiers == .maskCommand else { return nil }
+        // Match the typed letter; on non-Latin layouts fall back to the W/Q key positions like macOS shortcuts do.
+        let typed = NSEvent(cgEvent: event)?.charactersIgnoringModifiers?.lowercased() ?? ""
+        let letter = typed.unicodeScalars.allSatisfy(\.isASCII) && !typed.isEmpty
+            ? typed
+            : [13: "w", 12: "q"][event.getIntegerValueField(.keyboardEventKeycode)] ?? ""
+        switch letter {
+        case "w": return false
+        case "q": return true
+        default: return nil
         }
     }
 
