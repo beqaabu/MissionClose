@@ -1,0 +1,54 @@
+name: Release
+
+# Push a tag like v0.3.0 (matching CFBundleShortVersionString in Info.plist) to publish a release.
+# The annotated tag's message becomes the release notes.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tag matches Info.plist version
+        run: |
+          version=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Info.plist)
+          if [[ "v$version" != "$GITHUB_REF_NAME" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match Info.plist version $version"
+            exit 1
+          fi
+
+      # Every release is signed with the same self-signed certificate, so users keep their
+      # Accessibility permission across updates.
+      - name: Restore signing certificate
+        env:
+          SIGNING_P12_BASE64: ${{ secrets.SIGNING_P12_BASE64 }}
+        run: |
+          if [[ -z "$SIGNING_P12_BASE64" ]]; then
+            echo "::error::The SIGNING_P12_BASE64 secret is not set"
+            exit 1
+          fi
+          mkdir -p signing
+          echo "$SIGNING_P12_BASE64" | base64 --decode > signing/id.p12
+
+      - name: Build and package
+        run: NO_INSTALL=1 ./release.sh
+
+      - name: Write release notes
+        run: |
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > notes.md
+          cat >> notes.md <<'NOTES'
+
+          **Install:** unzip, move `MissionClose.app` to Applications, open it. It isn't signed with an Apple Developer ID, so the first time macOS will block it: click **Open Anyway** in System Settings → Privacy & Security. Then grant Accessibility access when asked.
+          NOTES
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.zip --title "MissionClose ${GITHUB_REF_NAME#v}" --notes-file notes.md

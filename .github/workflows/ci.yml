@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Ad-hoc signed: a build check doesn't need the release certificate (and PRs from forks can't read secrets).
+      - name: Build universal app
+        run: ADHOC=1 NO_INSTALL=1 ./build.sh
+
+      - name: Check architectures and deployment target
+        run: |
+          lipo -info build/MissionClose.app/Contents/MacOS/MissionClose
+          vtool -show-build build/MissionClose.app/Contents/MacOS/MissionClose | grep minos

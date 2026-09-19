@@ -1,5 +1,7 @@
 # MissionClose
 
+[![CI](https://github.com/beqaabu/MissionClose/actions/workflows/ci.yml/badge.svg)](https://github.com/beqaabu/MissionClose/actions/workflows/ci.yml)
+
 Close windows straight from Mission Control on macOS.
 
 Swipe up with three fingers (or press F3 / Ctrl+↑) and hover a window thumbnail: traffic-light buttons appear in its corner.
@@ -38,6 +40,21 @@ Requires the Xcode Command Line Tools (`xcode-select --install`), macOS 13 or la
 
 The first build creates a self-signed code signing certificate in `signing/` (git-ignored).
 Signing every build with the same certificate keeps macOS from asking for Accessibility access again after each rebuild.
+
+The app is a universal binary (Apple Silicon and Intel) for macOS 13 and later.
+
+## Releasing
+
+Bump `CFBundleShortVersionString` (and `CFBundleVersion`) in `Info.plist`, commit, then push an annotated tag:
+
+```sh
+git tag -a v0.3.0 -m "What's new in this release"
+git push origin main v0.3.0
+```
+
+The [Release workflow](.github/workflows/release.yml) builds and signs the app and publishes a GitHub release with the tag message as its notes.
+It signs with the certificate stored in the `SIGNING_P12_BASE64` repository secret (base64 of `signing/id.p12`),
+so every release has the same signature and users keep their Accessibility permission across updates.
 
 ## How it works
 
