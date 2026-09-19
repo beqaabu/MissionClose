@@ -45,16 +45,20 @@ The app is a universal binary (Apple Silicon and Intel) for macOS 13 and later.
 
 ## Releasing
 
-Bump `CFBundleShortVersionString` (and `CFBundleVersion`) in `Info.plist`, commit, then push an annotated tag:
+**From GitHub:** Actions → **Release** → **Run workflow**, enter a version (e.g. `0.3.0`) and an optional summary.
+The workflow bumps `Info.plist`, builds and signs the app, commits the bump, tags it, and publishes a release
+whose notes are the summary plus the commits since the last release.
+
+**From the command line:** bump `CFBundleShortVersionString` (and `CFBundleVersion`) in `Info.plist`, commit, then push an annotated tag:
 
 ```sh
 git tag -a v0.3.0 -m "What's new in this release"
 git push origin main v0.3.0
 ```
 
-The [Release workflow](.github/workflows/release.yml) builds and signs the app and publishes a GitHub release with the tag message as its notes.
-It signs with the certificate stored in the `SIGNING_P12_BASE64` repository secret (base64 of `signing/id.p12`),
-so every release has the same signature and users keep their Accessibility permission across updates.
+Either way the [Release workflow](.github/workflows/release.yml) signs with the certificate stored in the `SIGNING_P12_BASE64`
+repository secret (base64 of `signing/id.p12`), so every release has the same signature and users keep their
+Accessibility permission across updates.
 
 ## How it works
 
