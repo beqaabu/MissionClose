@@ -17,6 +17,7 @@ private func eventTapCallback(proxy: CGEventTapProxy, type: CGEventType, event: 
 
 final class Controller {
     private struct Thumb {
+        let key: ElementKey
         let element: AXUIElement
         let frame: CGRect
         let panel: WindowButtonsPanel
@@ -39,6 +40,8 @@ final class Controller {
     /// Every window on screen, gathered in the background when Mission Control opens so clicks are instant.
     private var windowIndex: [WindowRef]?
     private var indexGeneration = 0
+    /// With "confirm before quitting" on: the thumbnail whose quit is armed, until when.
+    private var pendingQuit: (key: ElementKey, until: Date)?
 
     func start() { schedule(after: 0.1) }
 
@@ -88,13 +91,18 @@ final class Controller {
         setClickTapEnabled(true)
 
         if thumbs.isEmpty && windowIndex == nil { refreshWindowIndex() }
+        let size = CGFloat(Settings.buttonSize.rawValue), corner = Settings.corner
         var next: [ElementKey: Thumb] = [:]
         for element in MissionControl.thumbnails(in: mc) {
             guard let frame = element.frame else { continue }
             let key = ElementKey(element: element)
-            let panel = thumbs[key]?.panel ?? WindowButtonsPanel()
-            panel.place(on: frame)
-            next[key] = Thumb(element: element, frame: frame, panel: panel)
+            let panel = thumbs[key]?.panel ?? WindowButtonsPanel(size: size)
+            panel.place(on: frame, corner: corner)
+            next[key] = Thumb(key: key, element: element, frame: frame, panel: panel)
+        }
+        if let pending = pendingQuit, Date() > pending.until {
+            next[pending.key]?.panel.armed = false
+            pendingQuit = nil
         }
         for (key, old) in thumbs where next[key] == nil { old.panel.orderOut(nil) }
         let moved = next.count != thumbs.count || next.contains { $0.value.frame != thumbs[$0.key]?.frame }
@@ -103,10 +111,12 @@ final class Controller {
         updateHover(at: CGEvent(source: nil)?.location ?? .zero)
     }
 
-    /// Only the thumbnail under the pointer shows its buttons, and only while Mission Control is at rest.
+    /// Buttons show on the thumbnail under the pointer (or on all of them, if configured),
+    /// and only while Mission Control is at rest.
     private func updateHover(at point: CGPoint) {
+        let alwaysShow = Settings.alwaysShow
         for thumb in thumbs.values {
-            let active = isSettled && thumb.frame.union(thumb.panel.axFrame).contains(point)
+            let active = isSettled && (alwaysShow || thumb.frame.union(thumb.panel.axFrame).contains(point))
             thumb.panel.updateHover(at: active ? point : nil)
             if active, !thumb.panel.isVisible {
                 thumb.panel.quitMode = CGEventSource.flagsState(.combinedSessionState).contains(.maskAlternate)
@@ -131,12 +141,12 @@ final class Controller {
             else { hideUntilSettled(); return false } // most clicks in Mission Control dismiss it
             swallowingMouseUp = true
             let quitApp = event.flags.contains(.maskAlternate)
-            DispatchQueue.main.async { [weak self] in self?.perform(button.action, on: thumb.element, quitApp: quitApp) }
+            DispatchQueue.main.async { [weak self] in self?.perform(button.action, on: thumb, quitApp: quitApp) }
             return true
         case .keyDown:
             // ⌘W / ⌘Q / ⌘M act on the thumbnail under the pointer.
             if let (action, quitApp) = Self.shortcut(event), let thumb = thumb(at: event.location) {
-                DispatchQueue.main.async { [weak self] in self?.perform(action, on: thumb.element, quitApp: quitApp) }
+                DispatchQueue.main.async { [weak self] in self?.perform(action, on: thumb, quitApp: quitApp) }
                 return true
             }
             if !thumbs.isEmpty { hideUntilSettled() } // Esc and other keys dismiss Mission Control
@@ -216,9 +226,11 @@ final class Controller {
         }
     }
 
-    private func perform(_ action: WindowAction, on thumb: AXUIElement, quitApp: Bool) {
+    private func perform(_ action: WindowAction, on thumb: Thumb, quitApp: Bool) {
+        if action == .close, quitApp, Settings.confirmQuit, !confirmQuit(thumb) { return }
         let cached = windowIndex ?? []
-        guard let target = WindowIndex.match(thumb, in: cached) ?? WindowIndex.match(thumb, in: WindowIndex.all()) else {
+        guard let target = WindowIndex.match(thumb.element, in: cached)
+                ?? WindowIndex.match(thumb.element, in: WindowIndex.all()) else {
             NSSound.beep()
             return
         }
@@ -238,7 +250,21 @@ final class Controller {
         // Mission Control updates its thumbnails on its own; the next tick picks up the change.
     }
 
+    /// First quit request arms the close button; a second one on the same thumbnail within 3 seconds goes through.
+    private func confirmQuit(_ thumb: Thumb) -> Bool {
+        if let pending = pendingQuit, pending.key == thumb.key, Date() <= pending.until {
+            pendingQuit = nil
+            thumb.panel.armed = false
+            return true
+        }
+        if let pending = pendingQuit { thumbs[pending.key]?.panel.armed = false }
+        pendingQuit = (thumb.key, Date().addingTimeInterval(3))
+        thumb.panel.armed = true
+        return false
+    }
+
     private func clear() {
+        pendingQuit = nil
         setClickTapEnabled(false)
         windowIndex = nil
         indexGeneration += 1

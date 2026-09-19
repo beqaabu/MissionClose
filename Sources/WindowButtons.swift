@@ -11,6 +11,8 @@ final class WindowButtonView: NSView {
     var hovering = false { didSet { if hovering != oldValue { needsDisplay = true } } }
     /// Close button only: Option is held, so a click quits the app; show a power symbol instead of the ✕.
     var quitMode = false { didSet { if quitMode != oldValue { needsDisplay = true } } }
+    /// Close button only: a quit is waiting for confirmation (a second ⌥-click / ⌘Q).
+    var armed = false { didSet { if armed != oldValue { needsDisplay = true } } }
 
     init(action: WindowAction, size: CGFloat) {
         self.action = action
@@ -28,14 +30,15 @@ final class WindowButtonView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
+        let highlighted = hovering || armed
         let circle = NSBezierPath(ovalIn: bounds.insetBy(dx: 1, dy: 1))
-        (hovering ? colors.fill : NSColor(white: 0.12, alpha: 0.72)).setFill()
+        (highlighted ? colors.fill : NSColor(white: 0.12, alpha: 0.72)).setFill()
         circle.fill()
-        NSColor.white.withAlphaComponent(hovering ? 0 : 0.25).setStroke()
+        NSColor.white.withAlphaComponent(highlighted ? 0 : 0.25).setStroke()
         circle.lineWidth = 0.5
         circle.stroke()
 
-        let glyphColor = hovering ? colors.glyph : NSColor.white.withAlphaComponent(0.85)
+        let glyphColor = highlighted ? colors.glyph : NSColor.white.withAlphaComponent(0.85)
         if action == .fullScreen {
             glyphColor.setFill()
             fullScreenGlyph().fill()
@@ -43,10 +46,10 @@ final class WindowButtonView: NSView {
         }
         let glyph: NSBezierPath
         switch action {
-        case .close: glyph = quitMode ? powerGlyph() : crossGlyph()
+        case .close: glyph = quitMode || armed ? powerGlyph() : crossGlyph()
         default: glyph = minusGlyph()
         }
-        glyph.lineWidth = 1.5
+        glyph.lineWidth = bounds.width * 0.075
         glyph.lineCapStyle = .round
         glyphColor.setStroke()
         glyph.stroke()
@@ -99,16 +102,17 @@ final class WindowButtonView: NSView {
 
 /// A row of close / minimize / full-screen buttons floating above Mission Control.
 final class WindowButtonsPanel: NSPanel {
-    static let size: CGFloat = 20
-    static let spacing: CGFloat = 6
+    let size: CGFloat
     let buttons: [WindowButtonView]
     /// Row rect in AX / CGEvent coordinates (top-left origin), used for hit testing.
     private(set) var axFrame = CGRect.zero
 
-    init() {
-        let s = Self.size
+    init(size: CGFloat) {
+        let s = size
+        let spacing = (s * 0.3).rounded()
+        self.size = s
         buttons = [WindowAction.close, .minimize, .fullScreen].map { WindowButtonView(action: $0, size: s) }
-        let width = CGFloat(buttons.count) * s + CGFloat(buttons.count - 1) * Self.spacing
+        let width = CGFloat(buttons.count) * s + CGFloat(buttons.count - 1) * spacing
         super.init(contentRect: NSRect(x: 0, y: 0, width: width, height: s),
                    styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         isOpaque = false
@@ -121,7 +125,7 @@ final class WindowButtonsPanel: NSPanel {
         collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
         let content = NSView(frame: NSRect(x: 0, y: 0, width: width, height: s))
         for (i, button) in buttons.enumerated() {
-            button.setFrameOrigin(NSPoint(x: CGFloat(i) * (s + Self.spacing), y: 0))
+            button.setFrameOrigin(NSPoint(x: CGFloat(i) * (s + spacing), y: 0))
             content.addSubview(button)
         }
         contentView = content
@@ -135,10 +139,16 @@ final class WindowButtonsPanel: NSPanel {
         set { buttons[0].quitMode = newValue }
     }
 
-    /// Sits on the thumbnail's top-left corner, where the traffic lights would be.
-    func place(on thumbAXFrame: CGRect) {
-        let s = Self.size
-        axFrame = CGRect(x: thumbAXFrame.minX - s / 3, y: thumbAXFrame.minY - s / 3, width: frame.width, height: s)
+    var armed: Bool {
+        get { buttons[0].armed }
+        set { buttons[0].armed = newValue }
+    }
+
+    /// Sits on the thumbnail's top-left corner, where the traffic lights would be (or top-right if configured).
+    func place(on thumbAXFrame: CGRect, corner: Settings.Corner) {
+        let s = size
+        let x = corner == .topLeft ? thumbAXFrame.minX - s / 3 : thumbAXFrame.maxX + s / 3 - frame.width
+        axFrame = CGRect(x: x, y: thumbAXFrame.minY - s / 3, width: frame.width, height: s)
         setFrame(cocoaRect(axFrame), display: false)
     }
 

@@ -10,7 +10,13 @@ No more opening a window just to hit its red button.
 - **− minimize** and **⤢ full screen**: same as the yellow and green buttons
 - **⌘W / ⌘Q / ⌘M** while hovering a thumbnail: close the window / quit its app / minimize it
 
-MissionClose lives in the menu bar and starts at login (toggle it from the menu).
+MissionClose lives in the menu bar and starts at login. From its menu you can set:
+
+- **Button Corner**: top left or top right of the thumbnail
+- **Button Size**: small, medium or large
+- **Show Buttons**: only on the hovered thumbnail, or on all of them
+- **Confirm Before Quitting Apps**: the first ⌥-click / ⌘Q arms the button, a second one within 3 seconds quits
+- **Launch at Login**
 
 ## Install
 
