@@ -55,7 +55,8 @@ final class Controller {
 
     private func installTapsIfNeeded() {
         if tap == nil {
-            let mask = [CGEventType.leftMouseDown, .leftMouseUp, .mouseMoved, .leftMouseDragged, .keyDown, .scrollWheel]
+            let mask = [CGEventType.leftMouseDown, .leftMouseUp, .mouseMoved, .leftMouseDragged, .keyDown, .scrollWheel,
+                        .flagsChanged]
                 .reduce(CGEventMask(0)) { $0 | (1 << $1.rawValue) }
             tap = makeTap(mask: mask, options: .defaultTap, callback: eventTapCallback)
             if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
@@ -107,7 +108,10 @@ final class Controller {
         for thumb in thumbs.values {
             let active = isSettled && thumb.frame.union(thumb.panel.axFrame).contains(point)
             thumb.panel.view.hovering = active && thumb.panel.axFrame.contains(point)
-            if active, !thumb.panel.isVisible { thumb.panel.orderFrontRegardless() }
+            if active, !thumb.panel.isVisible {
+                thumb.panel.view.quitMode = CGEventSource.flagsState(.combinedSessionState).contains(.maskAlternate)
+                thumb.panel.orderFrontRegardless()
+            }
             if !active, thumb.panel.isVisible { thumb.panel.orderOut(nil) }
         }
     }
@@ -130,6 +134,10 @@ final class Controller {
             return true
         case .keyDown, .scrollWheel: // Esc, space switching, or the start of a swipe
             if !thumbs.isEmpty { hideUntilSettled() }
+            return false
+        case .flagsChanged:
+            let quitMode = event.flags.contains(.maskAlternate)
+            thumbs.values.forEach { $0.panel.view.quitMode = quitMode }
             return false
         case .leftMouseUp:
             defer { swallowingMouseUp = false }

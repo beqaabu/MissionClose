@@ -3,6 +3,8 @@ import Cocoa
 final class CloseButtonView: NSView {
     /// True while the pointer is over the button itself (set by the controller; the view never gets real mouse events).
     var hovering = false { didSet { if hovering != oldValue { needsDisplay = true } } }
+    /// Option is held: a click quits the app, so show a power symbol instead of the ✕.
+    var quitMode = false { didSet { if quitMode != oldValue { needsDisplay = true } } }
 
     override func draw(_ dirtyRect: NSRect) {
         let circle = NSBezierPath(ovalIn: bounds.insetBy(dx: 1, dy: 1))
@@ -12,16 +14,32 @@ final class CloseButtonView: NSView {
         circle.lineWidth = 0.5
         circle.stroke()
 
-        let inset = bounds.width * 0.35
-        let cross = NSBezierPath()
-        cross.move(to: NSPoint(x: inset, y: inset))
-        cross.line(to: NSPoint(x: bounds.width - inset, y: bounds.height - inset))
-        cross.move(to: NSPoint(x: inset, y: bounds.height - inset))
-        cross.line(to: NSPoint(x: bounds.width - inset, y: inset))
-        cross.lineWidth = 1.5
-        cross.lineCapStyle = .round
+        let glyph = quitMode ? powerGlyph() : crossGlyph()
+        glyph.lineWidth = 1.5
+        glyph.lineCapStyle = .round
         (hovering ? NSColor(red: 0.45, green: 0.05, blue: 0.03, alpha: 1) : NSColor.white.withAlphaComponent(0.85)).setStroke()
-        cross.stroke()
+        glyph.stroke()
+    }
+
+    private func crossGlyph() -> NSBezierPath {
+        let inset = bounds.width * 0.35
+        let path = NSBezierPath()
+        path.move(to: NSPoint(x: inset, y: inset))
+        path.line(to: NSPoint(x: bounds.width - inset, y: bounds.height - inset))
+        path.move(to: NSPoint(x: inset, y: bounds.height - inset))
+        path.line(to: NSPoint(x: bounds.width - inset, y: inset))
+        return path
+    }
+
+    /// ⏻: an open ring with a stroke through the gap at the top.
+    private func powerGlyph() -> NSBezierPath {
+        let center = NSPoint(x: bounds.midX, y: bounds.midY - bounds.height * 0.02)
+        let radius = bounds.width * 0.2
+        let path = NSBezierPath()
+        path.appendArc(withCenter: center, radius: radius, startAngle: 125, endAngle: 55, clockwise: false)
+        path.move(to: center)
+        path.line(to: NSPoint(x: center.x, y: center.y + radius * 1.25))
+        return path
     }
 }
 
