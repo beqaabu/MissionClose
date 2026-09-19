@@ -1,3 +1,5 @@
 build/
 dist/
+# Local self-signed code signing identity (private key), created by build.sh
+signing/
 .DS_Store
