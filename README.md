@@ -24,6 +24,12 @@ MissionClose lives in the menu bar and starts at login. From its menu you can se
 
 ## Install
 
+```sh
+brew install --cask beqaabu/tap/missionclose
+```
+
+Or by hand:
+
 1. Download `MissionClose-<version>.zip` from [Releases](../../releases), unzip it, and move `MissionClose.app` to `/Applications` or `~/Applications`.
 2. Open it. MissionClose isn't signed with an Apple Developer ID, so macOS blocks it the first time:
    go to **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**.
