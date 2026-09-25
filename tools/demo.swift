@@ -245,6 +245,63 @@ func buttonPoint(_ frame: CGRect, index: Int, size: CGFloat = 20) -> CGPoint {
                    y: frame.minY - size / 3 + size / 2)
 }
 
+// MARK: - Diagnostics
+
+/// --diagnose: try each window action on every demo thumbnail and log what macOS returns,
+/// so failures (e.g. an app refusing to minimize while Mission Control is open) are visible.
+func diagnose(_ hud: HUD) {
+    var report = ["MissionClose action diagnostics \(Date())"]
+    func attempt(_ label: String, _ body: () -> AXError) {
+        let error = body()
+        report.append("    \(label): \(error == .success ? "ok" : "FAILED (\(error.rawValue))")")
+    }
+
+    toggleMissionControl()
+    let thumbs = settledThumbnails()
+    report.append("thumbnails: \(thumbs.count) demo windows")
+    let windows = WindowIndex.all()
+    for thumb in thumbs {
+        report.append("\n  \(thumb.title)")
+        guard let target = WindowIndex.match(thumb.element, in: windows) else {
+            report.append("    no matching window")
+            continue
+        }
+        report.append("    app: \(target.app.localizedName ?? "?")  window: \(target.title)")
+        let window = target.window
+        for attribute in [kAXMinimizedAttribute, "AXFullScreen", kAXCloseButtonAttribute, kAXMinimizeButtonAttribute, kAXFullScreenButtonAttribute] {
+            var settable: DarwinBoolean = false
+            AXUIElementIsAttributeSettable(window, attribute as CFString, &settable)
+            report.append("    \(attribute): present=\(window.value(attribute) != nil) settable=\(settable.boolValue)")
+        }
+        attempt("set AXMinimized true") {
+            AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
+        }
+        wait(1.2)
+        report.append("    minimized now: \(window.value(kAXMinimizedAttribute) as? Bool ?? false)")
+        attempt("press minimize button") {
+            guard let button = window.value(kAXMinimizeButtonAttribute), CFGetTypeID(button) == AXUIElementGetTypeID() else { return .attributeUnsupported }
+            return AXUIElementPerformAction(button as! AXUIElement, kAXPressAction as CFString)
+        }
+        wait(1.2)
+        report.append("    minimized after press: \(window.value(kAXMinimizedAttribute) as? Bool ?? false)")
+        attempt("set AXMinimized false") {
+            AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+        }
+        wait(0.8)
+    }
+    toggleMissionControl()
+    wait(1.0)
+
+    let log = report.joined(separator: "\n")
+    let url = URL(fileURLWithPath: "/tmp/missionclose-diagnostics.txt")
+    try? log.write(to: url, atomically: true, encoding: .utf8)
+    print(log)
+    hud.show("Diagnostics written to \(url.path)")
+    wait(4)
+    hud.hide()
+    closeDemoWindows()
+}
+
 // MARK: - Script
 
 let app = NSApplication.shared
@@ -270,8 +327,16 @@ wait(1.5)
 arrangeDemoWindows()
 wait(1.0)
 
+let arguments = CommandLine.arguments
+if arguments.contains("--diagnose") {
+    hud.show("Running diagnostics…")
+    diagnose(hud)
+    exit(0)
+}
+
 // Counts down so there's time to start the screen recording (⌘⇧5).
-let lead = Int(ProcessInfo.processInfo.environment["DEMO_COUNTDOWN"] ?? "12") ?? 12
+let countdownIndex = arguments.firstIndex(of: "--countdown").map { $0 + 1 }
+let lead = countdownIndex.flatMap { arguments.indices.contains($0) ? Int(arguments[$0]) : nil } ?? 12
 for remaining in stride(from: lead, through: 1, by: -1) {
     hud.show(remaining > 3
         ? "Start recording now  (⌘⇧5)          Demo starts in \(remaining)s"

@@ -1,7 +1,10 @@
 #!/bin/zsh
 # Builds and launches the scripted demo driver for screen recordings.
 #
-#   ./tools/record-demo.sh
+#   ./tools/record-demo.sh                 record the demo (12s countdown)
+#   ./tools/record-demo.sh --countdown 20  longer countdown
+#   ./tools/record-demo.sh --diagnose      log what each app allows, no recording
+#   ./tools/record-demo.sh --build-only    build and sign without launching
 #
 # The driver opens its own throwaway windows, counts down on screen so you can start
 # recording (⌘⇧5), then drives Mission Control: hover, close, minimize, option-click quit.
@@ -44,7 +47,7 @@ PLIST
 # swiftc only allows top-level code in a file called main.swift.
 cp tools/demo.swift build/demo-src/main.swift
 swiftc -O -swift-version 5 -o "$APP/Contents/MacOS/DemoDriver" \
-  build/demo-src/main.swift Sources/AX.swift Sources/MissionControl.swift -framework Cocoa
+  build/demo-src/main.swift Sources/AX.swift Sources/MissionControl.swift Sources/WindowIndex.swift -framework Cocoa
 
 if [[ -f "$KC" ]]; then
   security unlock-keychain -p $KC_PASS "$KC"
@@ -54,5 +57,11 @@ if [[ -f "$KC" ]]; then
   codesign --force --sign "$IDENTITY" "$APP"
 fi
 
-echo "Launching $APP — watch the screen for the countdown."
-open "$APP"
+if [[ " $* " == *" --build-only "* ]]; then
+  echo "Built $APP"
+  exit 0
+fi
+
+# `open` doesn't pass the environment to the app, so flags go through --args.
+echo "Launching $APP — watch the screen."
+open "$APP" --args "$@"
