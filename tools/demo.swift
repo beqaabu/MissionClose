@@ -6,7 +6,9 @@ import Cocoa
 // opens Mission Control, then moves the pointer and clicks the buttons on a fixed timeline.
 // Only windows whose title starts with DEMO_PREFIX are ever touched.
 //
-// Needs Accessibility access (to read Mission Control's thumbnails and to post clicks).
+// Needs Accessibility access. It ships as an app bundle launched with `open` on purpose:
+// a command-line tool started from a terminal inherits the terminal's Accessibility grant
+// instead of having its own, so granting the binary itself has no effect.
 
 let DEMO_PREFIX = "mcdemo-"
 let demoDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("missionclose-demo")
@@ -20,6 +22,47 @@ func wait(_ seconds: TimeInterval) {
 
 func step(_ message: String) {
     print("· \(message)")
+}
+
+// MARK: - On-screen prompt
+
+/// A panel that floats above everything (including Mission Control) to count down before the demo.
+final class HUD {
+    private let panel: NSPanel
+    private let label = NSTextField(labelWithString: "")
+
+    init() {
+        panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 620, height: 92),
+                        styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.assistiveTechHighWindow)))
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
+        panel.ignoresMouseEvents = true
+
+        let box = NSView(frame: panel.contentLayoutRect)
+        box.wantsLayer = true
+        box.layer?.backgroundColor = NSColor(white: 0.08, alpha: 0.92).cgColor
+        box.layer?.cornerRadius = 18
+        label.frame = box.bounds.insetBy(dx: 24, dy: 24)
+        label.alignment = .center
+        label.font = .systemFont(ofSize: 21, weight: .medium)
+        label.textColor = .white
+        box.addSubview(label)
+        panel.contentView = box
+
+        if let screen = NSScreen.main?.frame {
+            panel.setFrameOrigin(NSPoint(x: screen.midX - 310, y: screen.maxY - 220))
+        }
+    }
+
+    func show(_ text: String) {
+        label.stringValue = text
+        panel.orderFrontRegardless()
+    }
+
+    func hide() { panel.orderOut(nil) }
 }
 
 // MARK: - Demo content
@@ -204,29 +247,39 @@ func buttonPoint(_ frame: CGRect, index: Int, size: CGFloat = 20) -> CGPoint {
 
 // MARK: - Script
 
-guard AXIsProcessTrusted() else {
+let app = NSApplication.shared
+app.setActivationPolicy(.accessory)
+let hud = HUD()
+
+let trusted = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+guard trusted else {
+    hud.show("Grant DemoDriver Accessibility access, then run it again")
     print("""
-    This tool needs Accessibility access.
-    System Settings → Privacy & Security → Accessibility, then add the DemoDriver binary:
-      \(URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL.path)
+    DemoDriver needs Accessibility access.
+    Approve the prompt, or add it in System Settings → Privacy & Security → Accessibility:
+      \(Bundle.main.bundleURL.path)
     """)
+    wait(8)
     exit(1)
 }
 
 print("Opening demo windows…")
+hud.show("Opening demo windows…")
 _ = openDemoWindows()
 wait(1.5)
 arrangeDemoWindows()
 wait(1.0)
 
-print("""
-
-Ready. Start your screen recording (⌘⇧5 → Record Selected Portion or Entire Screen),
-then press Return here to run the demo.
-""")
-_ = readLine()
-
-wait(1.2)
+// Counts down so there's time to start the screen recording (⌘⇧5).
+let lead = Int(ProcessInfo.processInfo.environment["DEMO_COUNTDOWN"] ?? "12") ?? 12
+for remaining in stride(from: lead, through: 1, by: -1) {
+    hud.show(remaining > 3
+        ? "Start recording now  (⌘⇧5)          Demo starts in \(remaining)s"
+        : "Starting in \(remaining)…")
+    wait(1)
+}
+hud.hide()
+wait(0.6)
 step("open Mission Control")
 toggleMissionControl()
 
@@ -281,5 +334,9 @@ step("leave Mission Control")
 toggleMissionControl()
 wait(1.5)
 
+wait(0.8)
+hud.show("Done. Stop the recording (⌘⇧5).")
 print("\nDone. Stop the recording.")
 closeDemoWindows()
+wait(3)
+hud.hide()
