@@ -371,51 +371,54 @@ wait(0.6)
 step("open Mission Control")
 toggleMissionControl()
 
-var thumbs = settledThumbnails()
+let thumbs = settledThumbnails()
 guard thumbs.count >= 3 else {
     print("Couldn't find the demo thumbnails in Mission Control (found \(thumbs.count)).")
     closeDemoWindows()
     exit(1)
 }
 
-// 1. Hover a window so the buttons appear.
-step("hover a window")
-move(to: CGPoint(x: thumbs[1].frame.midX, y: thumbs[1].frame.midY), duration: 0.8)
-wait(0.7)
+/// Picks a demo thumbnail by a fragment of its title, so each step acts on the app we mean.
+func thumbnail(_ fragment: String) -> (element: AXUIElement, frame: CGRect, title: String)? {
+    settledThumbnails().first { $0.title.contains(fragment) }
+}
 
-// 2. Close it.
-step("click close")
-move(to: buttonPoint(thumbs[1].frame, index: 0), duration: 0.45)
-wait(0.5)
-click()
-wait(1.3)
-
-// 3. Minimize the next one.
-thumbs = settledThumbnails()
-if thumbs.count >= 2 {
-    step("minimize another window")
-    move(to: CGPoint(x: thumbs[0].frame.midX, y: thumbs[0].frame.midY), duration: 0.6)
-    wait(0.5)
-    move(to: buttonPoint(thumbs[0].frame, index: 1), duration: 0.4)
+// 1. Hover a text window, then close it.
+if let target = thumbnail("notes") {
+    step("hover a window")
+    move(to: CGPoint(x: target.frame.midX, y: target.frame.midY), duration: 0.8)
+    wait(0.7)
+    step("close it")
+    move(to: buttonPoint(target.frame, index: 0), duration: 0.45)
     wait(0.5)
     click()
     wait(1.4)
 }
 
-// 4. Hold Option: the ✕ becomes ⏻, and the click quits the whole app.
-thumbs = settledThumbnails()
-if let target = thumbs.first {
+// 2. Minimize a different app's window (Preview), so the clip shows two apps.
+if let target = thumbnail("image") {
+    step("minimize a window from another app")
+    move(to: CGPoint(x: target.frame.midX, y: target.frame.midY), duration: 0.7)
+    wait(0.5)
+    move(to: buttonPoint(target.frame, index: 1), duration: 0.4)
+    wait(0.5)
+    click()
+    wait(1.5)
+}
+
+// 3. Hold Option: the ✕ becomes ⏻, and the click quits the app, taking its remaining windows.
+if let target = thumbnail("changelog") ?? thumbnail("readme") {
     step("hold option, quit the app")
-    move(to: CGPoint(x: target.frame.midX, y: target.frame.midY), duration: 0.6)
+    move(to: CGPoint(x: target.frame.midX, y: target.frame.midY), duration: 0.7)
     wait(0.4)
     move(to: buttonPoint(target.frame, index: 0), duration: 0.4)
     wait(0.4)
     setOption(true)
-    wait(1.0)
+    wait(1.1)
     click(flags: .maskAlternate)
     wait(0.3)
     setOption(false)
-    wait(1.5)
+    wait(1.6)
 }
 
 step("leave Mission Control")
