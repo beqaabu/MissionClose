@@ -28,11 +28,15 @@ enum WindowIndex {
     /// Titles can change while Mission Control is open (e.g. a terminal spinner), so if the
     /// cached titles don't match, re-read the live ones before falling back to the app name.
     static func match(_ thumb: AXUIElement, in windows: [WindowRef]) -> WindowRef? {
-        guard let label = thumb.title, let thumbFrame = thumb.frame else { return nil }
-        var candidates = windows.filter { !label.isEmpty && $0.title == label }
-        if candidates.isEmpty { candidates = windows.filter { !label.isEmpty && $0.window.title == label } }
+        guard let label = thumb.title, !label.isEmpty, let thumbFrame = thumb.frame else { return nil }
+        var candidates = windows.filter { $0.title == label }
+        if candidates.isEmpty { candidates = windows.filter { $0.window.title == label } }
+        // Some apps put more in the window title than Mission Control's label shows,
+        // e.g. Preview's "photo.png – 2 documents, 2 total pages".
+        if candidates.isEmpty { candidates = windows.filter { $0.title.hasPrefix(label) } }
+        if candidates.isEmpty { candidates = windows.filter { ($0.window.title ?? "").hasPrefix(label) } }
+        if candidates.isEmpty { candidates = windows.filter { !$0.title.isEmpty && label.hasPrefix($0.title) } }
         if candidates.isEmpty { candidates = windows.filter { $0.app.localizedName == label } }
-        if candidates.isEmpty { candidates = windows.filter { !$0.title.isEmpty && label.contains($0.title) } }
         let ratio = thumbFrame.width / max(thumbFrame.height, 1)
         return candidates.min {
             abs($0.size.width / max($0.size.height, 1) - ratio) < abs($1.size.width / max($1.size.height, 1) - ratio)

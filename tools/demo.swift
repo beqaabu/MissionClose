@@ -259,8 +259,31 @@ func diagnose(_ hud: HUD) {
     toggleMissionControl()
     let thumbs = settledThumbnails()
     report.append("thumbnails: \(thumbs.count) demo windows")
-    let windows = WindowIndex.all()
-    for thumb in thumbs {
+    var windows = WindowIndex.all()
+
+    // Exact titles and subroles, to see why a thumbnail fails to match a window.
+    report.append("\nWindowIndex sees \(windows.count) windows:")
+    for w in windows {
+        report.append("  [\(w.app.localizedName ?? "?")] \"\(w.title)\" size=\(Int(w.size.width))x\(Int(w.size.height))")
+    }
+    report.append("\nRaw AX windows of the demo apps:")
+    for app in NSWorkspace.shared.runningApplications
+    where ["TextEdit", "Preview"].contains(app.localizedName ?? "") {
+        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        report.append("  \(app.localizedName ?? "?"): \(axApp.windows.count) windows")
+        for window in axApp.windows {
+            let minimized = window.value(kAXMinimizedAttribute) as? Bool ?? false
+            report.append("    subrole=\(window.subrole ?? "nil") minimized=\(minimized) title=\"\(window.title ?? "nil")\"")
+        }
+    }
+    report.append("\nThumbnail titles: " + thumbs.map { "\"\($0.title)\"" }.joined(separator: ", "))
+    // Mission Control rebuilds its thumbnails after every action, so re-read them each round
+    // instead of reusing stale elements.
+    for index in thumbs.indices {
+        let current = settledThumbnails()
+        guard index < current.count else { break }
+        let thumb = current[index]
+        windows = WindowIndex.all()
         report.append("\n  \(thumb.title)")
         guard let target = WindowIndex.match(thumb.element, in: windows) else {
             report.append("    no matching window")
