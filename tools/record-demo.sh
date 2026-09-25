@@ -47,7 +47,7 @@ PLIST
 # swiftc only allows top-level code in a file called main.swift.
 cp tools/demo.swift build/demo-src/main.swift
 swiftc -O -swift-version 5 -o "$APP/Contents/MacOS/DemoDriver" \
-  build/demo-src/main.swift Sources/AX.swift Sources/MissionControl.swift Sources/WindowIndex.swift -framework Cocoa
+  build/demo-src/main.swift tools/MockWindows.swift Sources/AX.swift Sources/MissionControl.swift Sources/WindowIndex.swift -framework Cocoa
 
 if [[ -f "$KC" ]]; then
   security unlock-keychain -p $KC_PASS "$KC"

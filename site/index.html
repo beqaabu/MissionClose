@@ -112,8 +112,19 @@
   .btn svg { width: 18px; height: 18px; }
   .fineprint { margin-top: 14px; font-size: 14px; color: var(--muted); }
 
+  /* Recording */
+  .clip { margin-top: 44px; }
+  .clip video {
+    display: block; width: 100%; height: auto;
+    border-radius: 18px;
+    box-shadow: 0 30px 80px rgba(20, 20, 60, 0.35), 0 0 0 1px var(--line);
+    background: #000;
+  }
+  .clip .caption { text-align: center; color: var(--muted); font-size: 15px; margin-top: 14px; }
+
   /* Demo */
-  .demo-section { padding-top: 36px; padding-bottom: 24px; }
+  .demo-section { padding-top: 56px; padding-bottom: 24px; }
+  .demo-section h2.try { font-size: clamp(26px, 3.2vw, 34px); letter-spacing: -0.02em; margin: 0 0 22px; text-align: center; }
   .demo-caption {
     display: flex; gap: 10px 18px; justify-content: center; align-items: center; flex-wrap: wrap;
     font-size: 15px; color: var(--muted); margin: 18px 0 0;
@@ -401,9 +412,16 @@
       <a class="btn secondary" href="https://github.com/beqaabu/MissionClose"><svg><use href="#i-github"/></svg>View on GitHub</a>
     </div>
     <div class="fineprint">Free and open source · macOS 13 or later · Apple Silicon and Intel</div>
+
+    <figure class="clip">
+      <video src="demo.mp4" poster="demo-poster.jpg" autoplay muted loop playsinline preload="metadata"
+             aria-label="Closing windows from Mission Control with MissionClose"></video>
+      <figcaption class="caption">Hover a window, click ✕. Real recording, nothing sped up.</figcaption>
+    </figure>
   </div>
 
   <div class="demo-section wrap">
+    <h2 class="try">Try it here</h2>
     <div class="stage" id="stage" aria-label="Interactive demo of MissionClose in Mission Control">
       <div class="spaces" id="spaces"><span class="space active">Desktop 1</span><span class="space">Desktop 2</span></div>
       <div class="dock" id="dock"></div>

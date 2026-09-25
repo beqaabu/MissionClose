@@ -10,8 +10,8 @@ import Cocoa
 // a command-line tool started from a terminal inherits the terminal's Accessibility grant
 // instead of having its own, so granting the binary itself has no effect.
 
-let DEMO_PREFIX = "mcdemo-"
-let demoDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("missionclose-demo")
+let DEMO_PREFIX = DEMO_WINDOW_PREFIX
+let arguments = CommandLine.arguments
 
 // MARK: - Input
 
@@ -65,112 +65,43 @@ final class HUD {
     func hide() { panel.orderOut(nil) }
 }
 
-// MARK: - Demo content
+// MARK: - Demo windows
+//
+// The driver draws its own windows by launching extra copies of itself ("helpers"), instead of
+// opening documents in TextEdit or Preview. Those apps put new windows wherever they already have
+// windows, which can be another desktop entirely, and their content isn't ours to show.
 
-/// Two styled TextEdit documents (RTF, so they aren't two identical grey walls of text),
-/// one image for Preview, and a folder of images for a Finder window.
-let documents: [(name: String, title: String, accent: NSColor, body: [String])] = [
-    ("\(DEMO_PREFIX)notes.rtf", "Launch checklist", NSColor(red: 0.85, green: 0.25, blue: 0.30, alpha: 1), [
-        "Record the demo clip",
-        "Post to r/macapps",
-        "Show HN on Tuesday morning",
-        "Update the Homebrew cask",
-    ]),
-    ("\(DEMO_PREFIX)changelog.rtf", "MissionClose 0.2.1", NSColor(red: 0.15, green: 0.45, blue: 0.85, alpha: 1), [
-        "Traffic-light buttons on every thumbnail",
-        "Keyboard: cmd-W, cmd-Q, cmd-M",
-        "Hold option to quit the whole app",
-        "Universal build for macOS 13 and later",
-    ]),
-]
-
-let palettes: [[NSColor]] = [
-    [NSColor(red: 0.30, green: 0.45, blue: 1.00, alpha: 1), NSColor(red: 0.78, green: 0.31, blue: 0.75, alpha: 1)],
-    [NSColor(red: 1.00, green: 0.54, blue: 0.36, alpha: 1), NSColor(red: 0.98, green: 0.22, blue: 0.34, alpha: 1)],
-    [NSColor(red: 0.20, green: 0.80, blue: 0.60, alpha: 1), NSColor(red: 0.10, green: 0.35, blue: 0.55, alpha: 1)],
-    [NSColor(red: 0.98, green: 0.80, blue: 0.25, alpha: 1), NSColor(red: 0.90, green: 0.35, blue: 0.20, alpha: 1)],
-]
-
-func writeDocument(_ doc: (name: String, title: String, accent: NSColor, body: [String])) -> URL {
-    let text = NSMutableAttributedString(string: doc.title + "\n\n", attributes: [
-        .font: NSFont.systemFont(ofSize: 34, weight: .bold),
-        .foregroundColor: doc.accent,
-    ])
-    for line in doc.body {
-        text.append(NSAttributedString(string: "\u{2022}  " + line + "\n\n", attributes: [
-            .font: NSFont.systemFont(ofSize: 21),
-            .foregroundColor: NSColor.textColor,
-        ]))
-    }
-    let url = demoDir.appendingPathComponent(doc.name)
-    if let rtf = text.rtf(from: NSRange(location: 0, length: text.length), documentAttributes: [:]) {
-        try? rtf.write(to: url)
-    }
-    return url
-}
-
-func writeGradient(_ url: URL, _ colors: [NSColor]) {
-    let size = NSSize(width: 1400, height: 900)
-    let image = NSImage(size: size)
-    image.lockFocus()
-    NSGradient(colors: colors)?.draw(in: NSRect(origin: .zero, size: size), angle: 35)
-    image.unlockFocus()
-    if let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
-       let png = rep.representation(using: .png, properties: [:]) {
-        try? png.write(to: url)
-    }
-}
-
-/// Opens the demo windows: two TextEdit documents, one image in Preview, and a Finder folder.
+/// Launches one helper process per spec (a separate copy of this app, so quitting one is a real quit).
 func openDemoWindows() {
-    let pictures = demoDir.appendingPathComponent("\(DEMO_PREFIX)pictures")
-    try? FileManager.default.createDirectory(at: pictures, withIntermediateDirectories: true)
-
-    let texts = documents.map(writeDocument)
-    let photo = demoDir.appendingPathComponent("\(DEMO_PREFIX)photo.png")
-    writeGradient(photo, palettes[0])
-    for (index, colors) in palettes.enumerated() {
-        writeGradient(pictures.appendingPathComponent("\(DEMO_PREFIX)shot\(index + 1).png"), colors)
+    for spec in helperSpecs {
+        let open = Process()
+        open.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        open.arguments = ["-n", Bundle.main.bundleURL.path, "--args", "--helper", spec.argument]
+        try? open.run()
+        open.waitUntilExit()
+        wait(0.8)
     }
+    wait(1.2)
+}
 
-    let config = NSWorkspace.OpenConfiguration()
-    config.activates = true
-    for (appPath, files) in [("/System/Applications/TextEdit.app", texts),
-                             ("/System/Applications/Preview.app", [photo])] {
-        NSWorkspace.shared.open(files, withApplicationAt: URL(fileURLWithPath: appPath), configuration: config, completionHandler: nil)
-        wait(1.6)
-    }
-
-    NSWorkspace.shared.open(pictures) // a Finder window, titled after the folder
-    wait(1.6)
-    // Icon view shows the images themselves, which reads better in a thumbnail than a file list.
-    let script = """
-    tell application "Finder"
-        set current view of front Finder window to icon view
-    end tell
-    """
-    let osascript = Process()
-    osascript.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-    osascript.arguments = ["-e", script]
-    try? osascript.run()
-    osascript.waitUntilExit()
+func helperApps() -> [NSRunningApplication] {
+    NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+        .filter { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
 }
 
 /// Spreads the demo windows out so Mission Control has something interesting to lay out.
 func arrangeDemoWindows() {
     guard let screen = NSScreen.main?.frame else { return }
     let frames: [CGRect] = [
-        CGRect(x: 0.05, y: 0.10, width: 0.40, height: 0.46),
-        CGRect(x: 0.53, y: 0.08, width: 0.38, height: 0.42),
-        CGRect(x: 0.20, y: 0.32, width: 0.36, height: 0.40),
-        CGRect(x: 0.42, y: 0.40, width: 0.44, height: 0.46),
-        CGRect(x: 0.10, y: 0.05, width: 0.42, height: 0.44),
+        CGRect(x: 0.04, y: 0.10, width: 0.42, height: 0.46),
+        CGRect(x: 0.52, y: 0.07, width: 0.40, height: 0.44),
+        CGRect(x: 0.26, y: 0.34, width: 0.40, height: 0.44),
+        CGRect(x: 0.58, y: 0.42, width: 0.38, height: 0.42),
     ]
     var index = 0
-    for app in NSWorkspace.shared.runningApplications where app.activationPolicy == .regular {
+    for app in helperApps() {
         let axApp = AXUIElementCreateApplication(app.processIdentifier)
-        for window in axApp.windows {
-            guard let title = window.title, title.hasPrefix(DEMO_PREFIX), index < frames.count else { continue }
+        for window in axApp.windows where index < frames.count {
             let f = frames[index]
             index += 1
             var point = CGPoint(x: screen.width * f.minX, y: 60 + screen.height * f.minY)
@@ -182,13 +113,9 @@ func arrangeDemoWindows() {
 }
 
 func closeDemoWindows() {
-    for app in NSWorkspace.shared.runningApplications where app.activationPolicy == .regular {
-        let axApp = AXUIElementCreateApplication(app.processIdentifier)
-        for window in axApp.windows where window.title?.hasPrefix(DEMO_PREFIX) == true {
-            _ = window.pressButton(kAXCloseButtonAttribute)
-        }
-    }
-    try? FileManager.default.removeItem(at: demoDir)
+    for app in helperApps() { app.terminate() }
+    wait(0.6)
+    for app in helperApps() where !app.isTerminated { app.forceTerminate() }
 }
 
 // MARK: - Mission Control
@@ -345,6 +272,11 @@ func diagnose(_ hud: HUD) {
 
 // MARK: - Script
 
+if let index = arguments.firstIndex(of: "--helper"), arguments.indices.contains(index + 1),
+   let spec = HelperSpec.parse(arguments[index + 1]) {
+    runHelper(spec)
+}
+
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 let hud = HUD()
@@ -368,7 +300,6 @@ wait(1.2)
 arrangeDemoWindows()
 wait(1.0)
 
-let arguments = CommandLine.arguments
 if arguments.contains("--diagnose") {
     hud.show("Running diagnostics…")
     diagnose(hud)
@@ -410,8 +341,8 @@ func waitUntilGone(_ fragment: String, timeout: TimeInterval = 5) {
     }
 }
 
-// 1. Hover a window, then close it: the image in Preview.
-if let target = thumbnail("photo") {
+// 1. Hover a window, then close it: the photo.
+if let target = thumbnail("Sunset") {
     step("hover a window")
     move(to: CGPoint(x: target.frame.midX, y: target.frame.midY), duration: 0.8)
     wait(0.7)
@@ -419,24 +350,24 @@ if let target = thumbnail("photo") {
     move(to: buttonPoint(target.frame, index: 0), duration: 0.45)
     wait(0.5)
     click()
-    waitUntilGone("photo")
+    waitUntilGone("Sunset")
     wait(0.7)
 }
 
-// 2. Minimize a different app's window: the Finder folder.
-if let target = thumbnail("pictures") {
+// 2. Minimize a different app's window: the file browser.
+if let target = thumbnail("Screenshots") {
     step("minimize a window from another app")
     move(to: CGPoint(x: target.frame.midX, y: target.frame.midY), duration: 0.7)
     wait(0.5)
     move(to: buttonPoint(target.frame, index: 1), duration: 0.4)
     wait(0.5)
     click()
-    waitUntilGone("pictures")
+    waitUntilGone("Screenshots")
     wait(0.7)
 }
 
-// 3. Hold Option: ✕ becomes ⏻, and one click quits TextEdit with both of its documents.
-if let target = thumbnail("notes") ?? thumbnail("changelog") {
+// 3. Hold Option: ✕ becomes ⏻, and one click quits that app, taking both of its windows.
+if let target = thumbnail("Launch checklist") {
     step("hold option, quit the app and both its windows")
     move(to: CGPoint(x: target.frame.midX, y: target.frame.midY), duration: 0.7)
     wait(0.4)
@@ -447,7 +378,7 @@ if let target = thumbnail("notes") ?? thumbnail("changelog") {
     click(flags: .maskAlternate)
     wait(0.25)
     setOption(false)
-    waitUntilGone(".rtf")
+    waitUntilGone("Release notes")
     wait(0.9)
 }
 

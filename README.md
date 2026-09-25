@@ -6,6 +6,8 @@ Close windows straight from Mission Control on macOS.
 
 **Website:** https://beqaabu.github.io/MissionClose
 
+![Closing windows from Mission Control](site/demo.gif)
+
 Swipe up with three fingers (or press F3 / Ctrl+↑) and hover a window thumbnail: traffic-light buttons appear in its corner.
 No more opening a window just to hit its red button.
 
