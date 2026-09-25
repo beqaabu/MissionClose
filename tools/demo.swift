@@ -67,75 +67,93 @@ final class HUD {
 
 // MARK: - Demo content
 
-let documents: [(name: String, body: String)] = [
-    ("\(DEMO_PREFIX)notes.txt", """
-    Launch checklist
-
-    - Record the demo clip
-    - Post to r/macapps
-    - Show HN on Tuesday morning
-    - Update the Homebrew cask
-    """),
-    ("\(DEMO_PREFIX)changelog.txt", """
-    MissionClose 0.2.1
-
-    Traffic-light buttons on every thumbnail.
-    Keyboard: cmd-W, cmd-Q, cmd-M.
-    Hold option to quit the whole app.
-    """),
-    ("\(DEMO_PREFIX)readme.txt", """
-    MissionClose
-
-    Close windows straight from Mission Control.
-    Hover a window, click the X.
-    """),
+/// Two styled TextEdit documents (RTF, so they aren't two identical grey walls of text),
+/// one image for Preview, and a folder of images for a Finder window.
+let documents: [(name: String, title: String, accent: NSColor, body: [String])] = [
+    ("\(DEMO_PREFIX)notes.rtf", "Launch checklist", NSColor(red: 0.85, green: 0.25, blue: 0.30, alpha: 1), [
+        "Record the demo clip",
+        "Post to r/macapps",
+        "Show HN on Tuesday morning",
+        "Update the Homebrew cask",
+    ]),
+    ("\(DEMO_PREFIX)changelog.rtf", "MissionClose 0.2.1", NSColor(red: 0.15, green: 0.45, blue: 0.85, alpha: 1), [
+        "Traffic-light buttons on every thumbnail",
+        "Keyboard: cmd-W, cmd-Q, cmd-M",
+        "Hold option to quit the whole app",
+        "Universal build for macOS 13 and later",
+    ]),
 ]
 
-/// Colorful placeholder images, so the thumbnails aren't all walls of text.
-func makeImages() -> [URL] {
-    let palettes: [[NSColor]] = [
-        [NSColor(red: 0.30, green: 0.45, blue: 1.0, alpha: 1), NSColor(red: 0.78, green: 0.31, blue: 0.75, alpha: 1)],
-        [NSColor(red: 1.0, green: 0.54, blue: 0.36, alpha: 1), NSColor(red: 0.98, green: 0.22, blue: 0.34, alpha: 1)],
-    ]
-    return palettes.enumerated().map { index, colors in
-        let size = NSSize(width: 1400, height: 900)
-        let image = NSImage(size: size)
-        image.lockFocus()
-        NSGradient(colors: colors)?.draw(in: NSRect(origin: .zero, size: size), angle: 35)
-        image.unlockFocus()
-        let url = demoDir.appendingPathComponent("\(DEMO_PREFIX)image\(index + 1).png")
-        if let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
-           let png = rep.representation(using: .png, properties: [:]) {
-            try? png.write(to: url)
-        }
-        return url
+let palettes: [[NSColor]] = [
+    [NSColor(red: 0.30, green: 0.45, blue: 1.00, alpha: 1), NSColor(red: 0.78, green: 0.31, blue: 0.75, alpha: 1)],
+    [NSColor(red: 1.00, green: 0.54, blue: 0.36, alpha: 1), NSColor(red: 0.98, green: 0.22, blue: 0.34, alpha: 1)],
+    [NSColor(red: 0.20, green: 0.80, blue: 0.60, alpha: 1), NSColor(red: 0.10, green: 0.35, blue: 0.55, alpha: 1)],
+    [NSColor(red: 0.98, green: 0.80, blue: 0.25, alpha: 1), NSColor(red: 0.90, green: 0.35, blue: 0.20, alpha: 1)],
+]
+
+func writeDocument(_ doc: (name: String, title: String, accent: NSColor, body: [String])) -> URL {
+    let text = NSMutableAttributedString(string: doc.title + "\n\n", attributes: [
+        .font: NSFont.systemFont(ofSize: 34, weight: .bold),
+        .foregroundColor: doc.accent,
+    ])
+    for line in doc.body {
+        text.append(NSAttributedString(string: "\u{2022}  " + line + "\n\n", attributes: [
+            .font: NSFont.systemFont(ofSize: 21),
+            .foregroundColor: NSColor.textColor,
+        ]))
+    }
+    let url = demoDir.appendingPathComponent(doc.name)
+    if let rtf = text.rtf(from: NSRange(location: 0, length: text.length), documentAttributes: [:]) {
+        try? rtf.write(to: url)
+    }
+    return url
+}
+
+func writeGradient(_ url: URL, _ colors: [NSColor]) {
+    let size = NSSize(width: 1400, height: 900)
+    let image = NSImage(size: size)
+    image.lockFocus()
+    NSGradient(colors: colors)?.draw(in: NSRect(origin: .zero, size: size), angle: 35)
+    image.unlockFocus()
+    if let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
+       let png = rep.representation(using: .png, properties: [:]) {
+        try? png.write(to: url)
     }
 }
 
-func openDemoWindows() -> [NSRunningApplication] {
-    try? FileManager.default.createDirectory(at: demoDir, withIntermediateDirectories: true)
-    var urls: [URL] = []
-    for doc in documents {
-        let url = demoDir.appendingPathComponent(doc.name)
-        try? doc.body.write(to: url, atomically: true, encoding: .utf8)
-        urls.append(url)
-    }
-    let images = makeImages()
+/// Opens the demo windows: two TextEdit documents, one image in Preview, and a Finder folder.
+func openDemoWindows() {
+    let pictures = demoDir.appendingPathComponent("\(DEMO_PREFIX)pictures")
+    try? FileManager.default.createDirectory(at: pictures, withIntermediateDirectories: true)
 
-    var apps: [NSRunningApplication] = []
+    let texts = documents.map(writeDocument)
+    let photo = demoDir.appendingPathComponent("\(DEMO_PREFIX)photo.png")
+    writeGradient(photo, palettes[0])
+    for (index, colors) in palettes.enumerated() {
+        writeGradient(pictures.appendingPathComponent("\(DEMO_PREFIX)shot\(index + 1).png"), colors)
+    }
+
     let config = NSWorkspace.OpenConfiguration()
     config.activates = true
-    let group = DispatchGroup()
-    for (appPath, files) in [("/System/Applications/TextEdit.app", urls), ("/System/Applications/Preview.app", images)] {
-        group.enter()
-        NSWorkspace.shared.open(files, withApplicationAt: URL(fileURLWithPath: appPath), configuration: config) { app, _ in
-            if let app { apps.append(app) }
-            group.leave()
-        }
-        wait(1.2)
+    for (appPath, files) in [("/System/Applications/TextEdit.app", texts),
+                             ("/System/Applications/Preview.app", [photo])] {
+        NSWorkspace.shared.open(files, withApplicationAt: URL(fileURLWithPath: appPath), configuration: config, completionHandler: nil)
+        wait(1.6)
     }
-    group.wait()
-    return apps
+
+    NSWorkspace.shared.open(pictures) // a Finder window, titled after the folder
+    wait(1.6)
+    // Icon view shows the images themselves, which reads better in a thumbnail than a file list.
+    let script = """
+    tell application "Finder"
+        set current view of front Finder window to icon view
+    end tell
+    """
+    let osascript = Process()
+    osascript.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+    osascript.arguments = ["-e", script]
+    try? osascript.run()
+    osascript.waitUntilExit()
 }
 
 /// Spreads the demo windows out so Mission Control has something interesting to lay out.
@@ -345,8 +363,8 @@ guard trusted else {
 
 print("Opening demo windows…")
 hud.show("Opening demo windows…")
-_ = openDemoWindows()
-wait(1.5)
+openDemoWindows()
+wait(1.2)
 arrangeDemoWindows()
 wait(1.0)
 
@@ -383,8 +401,17 @@ func thumbnail(_ fragment: String) -> (element: AXUIElement, frame: CGRect, titl
     settledThumbnails().first { $0.title.contains(fragment) }
 }
 
-// 1. Hover a text window, then close it.
-if let target = thumbnail("notes") {
+/// Waits until no thumbnail matches, so pacing follows what's on screen instead of a fixed guess.
+func waitUntilGone(_ fragment: String, timeout: TimeInterval = 5) {
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+        if !settledThumbnails().contains(where: { $0.title.contains(fragment) }) { return }
+        wait(0.15)
+    }
+}
+
+// 1. Hover a window, then close it: the image in Preview.
+if let target = thumbnail("photo") {
     step("hover a window")
     move(to: CGPoint(x: target.frame.midX, y: target.frame.midY), duration: 0.8)
     wait(0.7)
@@ -392,23 +419,25 @@ if let target = thumbnail("notes") {
     move(to: buttonPoint(target.frame, index: 0), duration: 0.45)
     wait(0.5)
     click()
-    wait(1.4)
+    waitUntilGone("photo")
+    wait(0.7)
 }
 
-// 2. Minimize a different app's window (Preview), so the clip shows two apps.
-if let target = thumbnail("image") {
+// 2. Minimize a different app's window: the Finder folder.
+if let target = thumbnail("pictures") {
     step("minimize a window from another app")
     move(to: CGPoint(x: target.frame.midX, y: target.frame.midY), duration: 0.7)
     wait(0.5)
     move(to: buttonPoint(target.frame, index: 1), duration: 0.4)
     wait(0.5)
     click()
-    wait(1.5)
+    waitUntilGone("pictures")
+    wait(0.7)
 }
 
-// 3. Hold Option: the ✕ becomes ⏻, and the click quits the app, taking its remaining windows.
-if let target = thumbnail("changelog") ?? thumbnail("readme") {
-    step("hold option, quit the app")
+// 3. Hold Option: ✕ becomes ⏻, and one click quits TextEdit with both of its documents.
+if let target = thumbnail("notes") ?? thumbnail("changelog") {
+    step("hold option, quit the app and both its windows")
     move(to: CGPoint(x: target.frame.midX, y: target.frame.midY), duration: 0.7)
     wait(0.4)
     move(to: buttonPoint(target.frame, index: 0), duration: 0.4)
@@ -416,9 +445,10 @@ if let target = thumbnail("changelog") ?? thumbnail("readme") {
     setOption(true)
     wait(1.1)
     click(flags: .maskAlternate)
-    wait(0.3)
+    wait(0.25)
     setOption(false)
-    wait(1.6)
+    waitUntilGone(".rtf")
+    wait(0.9)
 }
 
 step("leave Mission Control")
