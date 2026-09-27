@@ -1,0 +1,67 @@
+name: Bug report
+description: Something doesn't work
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. MissionClose reads Mission Control through the accessibility API,
+        so the details below are usually what's needed to reproduce a problem.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+      placeholder: Hovered a Preview window and clicked the minimize button; it beeped and nothing happened.
+    validations:
+      required: true
+  - type: input
+    id: app
+    attributes:
+      label: Which app and window?
+      description: The app, and the window's title as shown in its title bar. Titles are how MissionClose finds a window, so this matters.
+      placeholder: 'Preview — "holiday.png – 2 documents, 2 total pages"'
+  - type: dropdown
+    id: action
+    attributes:
+      label: Which button or shortcut?
+      multiple: true
+      options:
+        - Close (✕)
+        - Minimize (−)
+        - Full screen (⤢)
+        - Option-click to quit
+        - "⌘W / ⌘Q / ⌘M"
+        - The buttons didn't appear at all
+        - Something else
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "26.5.2"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: MissionClose version
+      description: Shown in the release you installed, or run `defaults read /Applications/MissionClose.app/Contents/Info CFBundleShortVersionString`.
+      placeholder: "0.2.1"
+  - type: dropdown
+    id: hardware
+    attributes:
+      label: How do you open Mission Control?
+      multiple: true
+      options:
+        - Three-finger swipe on a trackpad
+        - Magic Mouse
+        - F3 or Ctrl+Up
+        - Hot corner
+        - Other
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: 'The menu bar icon says "Accessibility: granted"'
+        - label: I am on the latest release

@@ -1,0 +1,15 @@
+name: Feature request
+description: Suggest something MissionClose should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like it to do?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What are you doing today instead?
+      description: The workaround you use now, which helps judge how much the feature would save.
