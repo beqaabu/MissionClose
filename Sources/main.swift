@@ -17,8 +17,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let confirmQuitItem = NSMenuItem(title: "Confirm Before Quitting Apps", action: #selector(toggleConfirmQuit), keyEquivalent: "")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = MenuBarIcon.make()
@@ -41,6 +39,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         confirmQuitItem.target = self
         menu.addItem(confirmQuitItem)
         menu.addItem(.separator())
+        menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
+            .target = self
+        menu.addItem(withTitle: "About MissionClose", action: #selector(showWelcome), keyEquivalent: "")
+            .target = self
         loginItem.target = self
         menu.addItem(loginItem)
         menu.addItem(withTitle: "Quit MissionClose", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -53,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         controller.start()
+        WelcomeWindow.shared.showIfNeeded()
     }
 
     func menuWillOpen(_ menu: NSMenu) {
@@ -107,6 +110,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } catch {
             NSAlert(error: error).runModal()
         }
+    }
+
+    @objc private func checkForUpdates() {
+        UpdateCheck.run()
+    }
+
+    @objc private func showWelcome() {
+        WelcomeWindow.shared.show()
     }
 
     @objc private func openAccessibilitySettings() {

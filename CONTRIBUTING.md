@@ -24,7 +24,10 @@ Accessibility permission after each rebuild. Ad-hoc signatures change every time
 | --- | --- |
 | `Sources/AX.swift` | Thin wrappers over the accessibility API, and AX ↔ Cocoa coordinate conversion |
 | `Sources/MissionControl.swift` | Finding Mission Control in the Dock's accessibility tree and its thumbnails |
-| `Sources/WindowIndex.swift` | Every on-screen window, and matching a thumbnail to one |
+| `Sources/WindowIndex.swift` | Every on-screen window, gathered through the accessibility API |
+| `Sources/WindowMatching.swift` | The rules that decide which window a thumbnail belongs to (unit-tested) |
+| `Sources/Welcome.swift` | First-run window explaining the Accessibility requirement |
+| `Sources/UpdateCheck.swift` | The on-demand "Check for Updates" request |
 | `Sources/WindowButtons.swift` | The floating traffic-light buttons and their drawing |
 | `Sources/Controller.swift` | The polling loop, event taps, hover state and the actions |
 | `Sources/Settings.swift` | Preferences, stored in UserDefaults |
@@ -32,6 +35,16 @@ Accessibility permission after each rebuild. Ad-hoc signatures change every time
 | `Sources/main.swift` | App delegate and menu |
 | `tools/` | The scripted demo driver used for recordings |
 | `site/` | The website, deployed to GitHub Pages on every change |
+
+## Tests
+
+```sh
+./tools/test.sh
+```
+
+Plain assertions, no XCTest, so the project stays buildable with `swiftc` alone. They cover the rules
+that decide which window a thumbnail belongs to (`Sources/WindowMatching.swift`) and version comparison.
+CI runs them on every push.
 
 ## Recording a demo
 
