@@ -5,13 +5,20 @@ enum MissionControl {
         NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first?.processIdentifier
     }
 
-    /// The Dock exposes an "mc" group only while Mission Control is on screen.
+    /// The Dock exposes one of these groups only while that overview is on screen:
+    /// "mc" for Mission Control, "appexpose" for App Exposé (three-finger swipe down / ⌃↓).
+    /// Both lay out window thumbnails the same way, so everything else treats them alike.
+    private static let overviewIdentifiers = ["mc", "appexpose"]
+
     static func root() -> AXUIElement? {
         guard let pid = dockPID else { return nil }
-        return AXUIElementCreateApplication(pid).children.first { $0.identifier == "mc" }
+        return AXUIElementCreateApplication(pid).children.first {
+            guard let identifier = $0.identifier else { return false }
+            return overviewIdentifiers.contains(identifier)
+        }
     }
 
-    /// Window thumbnails: buttons under "mc", skipping the Spaces bar at the top.
+    /// Window thumbnails: the buttons in the overview, skipping Mission Control's Spaces bar.
     static func thumbnails(in mc: AXUIElement) -> [AXUIElement] {
         var result: [AXUIElement] = []
         func walk(_ e: AXUIElement, depth: Int) {

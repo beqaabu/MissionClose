@@ -21,7 +21,8 @@ Mission Control shows every window you have open, but won't let you touch them. 
 open it first, hit its red button, then swipe up again.
 
 MissionClose puts the traffic lights on the thumbnails. Swipe up with three fingers (or press <kbd>F3</kbd> /
-<kbd>⌃↑</kbd>), hover a window, and click.
+<kbd>⌃↑</kbd>), hover a window, and click. It works in **App Exposé** too, the one-app view you get by
+swiping down with three fingers (<kbd>⌃↓</kbd>).
 
 | Action | Click | Keyboard (while hovering) |
 | --- | --- | --- |
@@ -97,8 +98,9 @@ keyboard shortcut, hot corner), since the timing is inferred rather than reporte
 
 macOS has no public API for Mission Control, so MissionClose works from the outside:
 
-- **Is Mission Control open?** While it's on screen, the Dock's accessibility tree contains a group with the
-  identifier `mc`, whose buttons are the window thumbnails, with their on-screen frames and titles.
+- **Is an overview open?** While Mission Control is on screen, the Dock's accessibility tree contains a group
+  with the identifier `mc`, whose buttons are the window thumbnails, with their on-screen frames and titles.
+  App Exposé produces the same shape under `appexpose`, so both are handled by the same code.
 - **When to show the buttons.** Nothing reports that Mission Control finished animating, so the app waits
   until no thumbnail has moved for two polls and no three-finger swipe is in progress, which it tracks from
   trackpad touch events.
@@ -119,6 +121,8 @@ an auto-hidden Dock from sliding up on hover. Hence the finger counting.
   Built and tested on macOS 26.
 - Two windows with the same title in different apps can occasionally be confused; aspect ratio breaks the tie.
 - Mission Control's main view only shows windows on the current Space, so others can't be reached from there.
+- Long titles are shortened by Mission Control ("Some very lo…document.pdf"), which is handled, but a window
+  whose title is *only* an ellipsis-shortened duplicate of another's can still be ambiguous.
 - Full screen has to leave Mission Control first, because macOS aborts the transition otherwise.
 
 ## Contributing

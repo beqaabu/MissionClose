@@ -270,6 +270,163 @@ func diagnose(_ hud: HUD) {
     closeDemoWindows()
 }
 
+// MARK: - App Exposé probe
+
+/// --probe-expose: opens a couple of windows, triggers App Exposé (⌃↓) and dumps what the Dock's
+/// accessibility tree contains, to see whether MissionClose can work there too.
+func probeAppExpose(_ hud: HUD) {
+    hud.show("Probing App Exposé…")
+    openDemoWindows()
+    wait(2.0)
+    helperApps().first?.activate()
+    wait(1.0)
+
+    func dockTree(_ note: String) -> [String] {
+        guard let pid = MissionControl.dockPID else { return ["\(note): no Dock"] }
+        var lines = ["\(note):"]
+        func walk(_ element: AXUIElement, _ depth: Int) {
+            guard depth < 7, lines.count < 200 else { return }
+            let role = element.role ?? "?"
+            let identifier = element.identifier ?? ""
+            let title = element.title ?? ""
+            let frame = element.frame.map { "\(Int($0.minX)),\(Int($0.minY)) \(Int($0.width))x\(Int($0.height))" } ?? ""
+            if role != "AXDockItem" {
+                lines.append(String(repeating: "  ", count: depth + 1) +
+                             "\(role) id=\(identifier.isEmpty ? "-" : identifier) " +
+                             "title=\(title.isEmpty ? "-" : "\"\(title)\"") \(frame)")
+            }
+            for child in element.children { walk(child, depth + 1) }
+        }
+        walk(AXUIElementCreateApplication(pid), 0)
+        return lines
+    }
+
+    // The Dock draws Mission Control and App Exposé as its own full-screen windows. Listing them
+    // shows whether anything actually opened, which the accessibility tree alone can't tell us.
+    func dockWindows(_ note: String) -> [String] {
+        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
+        else { return ["\(note): window list unavailable"] }
+        let dockWindows = list.filter { ($0[kCGWindowOwnerName as String] as? String) == "Dock" }
+        var lines = ["\(note): \(dockWindows.count) Dock windows"]
+        for window in dockWindows {
+            let bounds = window[kCGWindowBounds as String] as? [String: Any] ?? [:]
+            let width = (bounds["Width"] as? Double) ?? 0, height = (bounds["Height"] as? Double) ?? 0
+            lines.append("    layer=\(window[kCGWindowLayer as String] as? Int ?? -1) " +
+                         "\(Int(width))x\(Int(height)) alpha=\(window[kCGWindowAlpha as String] as? Double ?? 0)")
+        }
+        return lines
+    }
+
+    var report = ["App Exposé probe \(Date())"]
+    report += dockTree("Dock before (nothing open)")
+    report += dockWindows("Dock windows before")
+
+    // ⌃↓ is "Application windows", the keyboard equivalent of the three-finger swipe down.
+    for down in [true, false] {
+        if let event = CGEvent(keyboardEventSource: nil, virtualKey: 0x7D, keyDown: down) {
+            event.flags = down ? .maskControl : []
+            event.post(tap: .cghidEventTap)
+        }
+        wait(0.1)
+    }
+    wait(2.0)
+    report += dockTree("Dock during App Exposé")
+    report += dockWindows("Dock windows during App Exposé")
+    report.append("MissionControl.root() during App Exposé: \(MissionControl.root() != nil)")
+    if let mc = MissionControl.root() {
+        let thumbs = MissionControl.thumbnails(in: mc)
+        report.append("thumbnails found: \(thumbs.count)")
+        for thumb in thumbs {
+            report.append("  \"\(thumb.title ?? "-")\" \(thumb.frame.map { "\(Int($0.width))x\(Int($0.height))" } ?? "?")")
+        }
+    }
+
+    // Escape, then the same measurements for Mission Control, which is known to work.
+    for down in [true, false] {
+        if let event = CGEvent(keyboardEventSource: nil, virtualKey: 0x35, keyDown: down) { event.post(tap: .cghidEventTap) }
+        wait(0.1)
+    }
+    wait(1.2)
+    toggleMissionControl()
+    wait(1.8)
+    report += dockWindows("Dock windows during Mission Control (for comparison)")
+    report.append("MissionControl.root() during Mission Control: \(MissionControl.root() != nil)")
+    toggleMissionControl()
+    wait(1.2)
+
+    // Escape leaves App Exposé.
+    for down in [true, false] {
+        if let event = CGEvent(keyboardEventSource: nil, virtualKey: 0x35, keyDown: down) { event.post(tap: .cghidEventTap) }
+        wait(0.1)
+    }
+    wait(1.0)
+
+    let url = URL(fileURLWithPath: "/tmp/missionclose-expose.txt")
+    try? report.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+    print(report.joined(separator: "\n"))
+    hud.show("Wrote \(url.path)")
+    wait(3)
+    hud.hide()
+    closeDemoWindows()
+}
+
+/// --watch: samples the Dock for 25 seconds while you trigger App Exposé by hand, and records
+/// anything that appears. Used because a synthetic ⌃↓ doesn't trigger it.
+func watchForExpose(_ hud: HUD) {
+    openDemoWindows()
+    wait(2.0)
+    helperApps().first?.activate()
+    wait(0.8)
+
+    var report = ["App Exposé watch \(Date())"]
+    var lastSignature = ""
+    let deadline = Date().addingTimeInterval(25)
+    hud.show("Swipe down with three fingers now (watching for 25s)")
+
+    while Date() < deadline {
+        let list = (CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? [])
+            .filter { ($0[kCGWindowOwnerName as String] as? String) == "Dock" }
+        let root = MissionControl.root()
+        let thumbs = root.map { MissionControl.thumbnails(in: $0) } ?? []
+        let signature = "dockWindows=\(list.count) mcRoot=\(root != nil) thumbs=\(thumbs.count)"
+        if signature != lastSignature {
+            lastSignature = signature
+            report.append("\(Date().formatted(date: .omitted, time: .standard))  \(signature)")
+            for window in list {
+                let bounds = window[kCGWindowBounds as String] as? [String: Any] ?? [:]
+                report.append("    dock window layer=\(window[kCGWindowLayer as String] as? Int ?? -1) " +
+                              "\(Int((bounds["Width"] as? Double) ?? 0))x\(Int((bounds["Height"] as? Double) ?? 0))")
+            }
+            for thumb in thumbs {
+                report.append("    thumbnail \"\(thumb.title ?? "-")\"")
+            }
+            // The whole Dock tree, the first time anything shows up.
+            if root == nil, !list.isEmpty, let pid = MissionControl.dockPID {
+                report.append("    Dock accessibility tree while something is open:")
+                func walk(_ element: AXUIElement, _ depth: Int) {
+                    guard depth < 7, report.count < 220 else { return }
+                    let role = element.role ?? "?"
+                    if role != "AXDockItem" {
+                        report.append(String(repeating: "  ", count: depth + 3) +
+                                      "\(role) id=\(element.identifier ?? "-") title=\"\(element.title ?? "")\"")
+                    }
+                    for child in element.children { walk(child, depth + 1) }
+                }
+                walk(AXUIElementCreateApplication(pid), 0)
+            }
+        }
+        wait(0.25)
+    }
+
+    let url = URL(fileURLWithPath: "/tmp/missionclose-expose.txt")
+    try? report.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+    print(report.joined(separator: "\n"))
+    hud.show("Done. Wrote \(url.path)")
+    wait(3)
+    hud.hide()
+    closeDemoWindows()
+}
+
 // MARK: - Script
 
 if let index = arguments.firstIndex(of: "--helper"), arguments.indices.contains(index + 1),
@@ -299,6 +456,16 @@ openDemoWindows()
 wait(1.2)
 arrangeDemoWindows()
 wait(1.0)
+
+if arguments.contains("--watch-expose") {
+    watchForExpose(hud)
+    exit(0)
+}
+
+if arguments.contains("--probe-expose") {
+    probeAppExpose(hud)
+    exit(0)
+}
 
 if arguments.contains("--diagnose") {
     hud.show("Running diagnostics…")
