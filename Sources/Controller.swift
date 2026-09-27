@@ -171,19 +171,21 @@ final class Controller {
         return thumbs.values.first { $0.frame.union($0.panel.axFrame).contains(point) }
     }
 
-    /// ⌘W closes the window, ⌘Q quits the app, ⌘M minimizes; nil for anything else.
+    /// ⌘W closes the window, ⌘Q quits the app, ⌘M minimizes, ⌘⌥W closes the app's other
+    /// windows; nil for anything else.
     private static func shortcut(_ event: CGEvent) -> (WindowAction, quitApp: Bool)? {
         let modifiers = event.flags.intersection([.maskCommand, .maskControl, .maskAlternate, .maskShift])
-        guard modifiers == .maskCommand else { return nil }
+        guard modifiers == .maskCommand || modifiers == [.maskCommand, .maskAlternate] else { return nil }
+        let withOption = modifiers.contains(.maskAlternate)
         // Match the typed letter; on non-Latin layouts fall back to the W/Q key positions like macOS shortcuts do.
         let typed = NSEvent(cgEvent: event)?.charactersIgnoringModifiers?.lowercased() ?? ""
         let letter = typed.unicodeScalars.allSatisfy(\.isASCII) && !typed.isEmpty
             ? typed
             : [13: "w", 12: "q", 46: "m"][event.getIntegerValueField(.keyboardEventKeycode)] ?? ""
         switch letter {
-        case "w": return (.close, false)
-        case "q": return (.close, true)
-        case "m": return (.minimize, false)
+        case "w": return withOption ? (.closeOthers, false) : (.close, false)
+        case "q" where !withOption: return (.close, true)
+        case "m" where !withOption: return (.minimize, false)
         default: return nil
         }
     }
@@ -243,6 +245,13 @@ final class Controller {
             ok = window.pressButton(kAXCloseButtonAttribute)
         case .minimize:
             ok = window.set(kAXMinimizedAttribute, true) || window.pressButton(kAXMinimizeButtonAttribute)
+        case .closeOthers:
+            // Every standard window of the same app except this one.
+            let others = (windowIndex ?? WindowIndex.all()).filter {
+                $0.app.processIdentifier == target.app.processIdentifier && !CFEqual($0.window, window)
+            }
+            others.forEach { _ = $0.window.pressButton(kAXCloseButtonAttribute) }
+            ok = !others.isEmpty
         case .fullScreen:
             // Mission Control aborts a full-screen transition, so leave it first: pressing the thumbnail
             // does what clicking it would (exit and bring that window forward), then go full screen.

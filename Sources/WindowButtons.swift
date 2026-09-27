@@ -2,6 +2,8 @@ import Cocoa
 
 enum WindowAction {
     case close, minimize, fullScreen
+    /// Keyboard only: close every other window of the same app (⌘⌥W).
+    case closeOthers
 }
 
 /// One traffic-light button. Subtle dark circle by default, the real traffic-light color while hovered.
@@ -23,7 +25,7 @@ final class WindowButtonView: NSView {
 
     private var colors: (fill: NSColor, glyph: NSColor) {
         switch action {
-        case .close: return (NSColor(red: 1.0, green: 0.37, blue: 0.34, alpha: 1), NSColor(red: 0.45, green: 0.05, blue: 0.03, alpha: 1))
+        case .close, .closeOthers: return (NSColor(red: 1.0, green: 0.37, blue: 0.34, alpha: 1), NSColor(red: 0.45, green: 0.05, blue: 0.03, alpha: 1))
         case .minimize: return (NSColor(red: 1.0, green: 0.74, blue: 0.18, alpha: 1), NSColor(red: 0.55, green: 0.32, blue: 0.0, alpha: 1))
         case .fullScreen: return (NSColor(red: 0.16, green: 0.79, blue: 0.25, alpha: 1), NSColor(red: 0.0, green: 0.38, blue: 0.05, alpha: 1))
         }
@@ -46,7 +48,7 @@ final class WindowButtonView: NSView {
         }
         let glyph: NSBezierPath
         switch action {
-        case .close: glyph = quitMode || armed ? powerGlyph() : crossGlyph()
+        case .close, .closeOthers: glyph = quitMode || armed ? powerGlyph() : crossGlyph()
         default: glyph = minusGlyph()
         }
         glyph.lineWidth = bounds.width * 0.075

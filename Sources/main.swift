@@ -29,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(withTitle: "Hover a thumbnail in Mission Control to close, minimize or full-screen it", action: nil, keyEquivalent: "")
         menu.addItem(withTitle: "Option-click ✕ to quit the app", action: nil, keyEquivalent: "")
         menu.addItem(withTitle: "Or press ⌘W / ⌘Q / ⌘M while hovering", action: nil, keyEquivalent: "")
+        menu.addItem(withTitle: "⌘⌥W closes the app's other windows", action: nil, keyEquivalent: "")
         menu.addItem(.separator())
         cornerItems = Settings.Corner.allCases.map { item($0.title, #selector(setCorner(_:)), $0.rawValue) }
         sizeItems = Settings.ButtonSize.allCases.map { item($0.title, #selector(setButtonSize(_:)), $0.rawValue) }

@@ -29,6 +29,7 @@ MissionClose puts the traffic lights on the thumbnails. Swipe up with three fing
 | Minimize it | **−** | <kbd>⌘M</kbd> |
 | Full screen | **⤢** | — |
 | Quit the whole app | <kbd>⌥</kbd> + **✕** (the ✕ becomes **⏻**) | <kbd>⌘Q</kbd> |
+| Close the app's *other* windows | — | <kbd>⌘⌥W</kbd> |
 
 The buttons stay hidden until Mission Control has settled and your fingers are off the trackpad, so they
 never flicker mid-swipe or catch a stray click.
