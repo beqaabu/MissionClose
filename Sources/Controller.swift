@@ -231,8 +231,10 @@ final class Controller {
     private func perform(_ action: WindowAction, on thumb: Thumb, quitApp: Bool) {
         if action == .close, quitApp, Settings.confirmQuit, !confirmQuit(thumb) { return }
         let cached = windowIndex ?? []
-        guard let target = WindowIndex.match(thumb.element, in: cached)
-                ?? WindowIndex.match(thumb.element, in: WindowIndex.all()) else {
+        let fresh = WindowIndex.all()
+        guard let target = WindowIndex.match(thumb.element, in: cached) ?? WindowIndex.match(thumb.element, in: fresh) else {
+            Diagnostics.logFailure(action: "\(action)", label: thumb.element.title,
+                                   thumbnailSize: thumb.element.frame?.size, windows: fresh, matched: nil)
             NSSound.beep()
             return
         }
@@ -247,7 +249,7 @@ final class Controller {
             ok = window.set(kAXMinimizedAttribute, true) || window.pressButton(kAXMinimizeButtonAttribute)
         case .closeOthers:
             // Every standard window of the same app except this one.
-            let others = (windowIndex ?? WindowIndex.all()).filter {
+            let others = fresh.filter {
                 $0.app.processIdentifier == target.app.processIdentifier && !CFEqual($0.window, window)
             }
             others.forEach { _ = $0.window.pressButton(kAXCloseButtonAttribute) }
@@ -259,7 +261,11 @@ final class Controller {
             ok = thumb.element.press()
             if ok { enterFullScreen(window, of: target.app, deadline: Date().addingTimeInterval(2)) }
         }
-        if !ok { NSSound.beep() }
+        if !ok {
+            Diagnostics.logFailure(action: "\(action)", label: thumb.element.title,
+                                   thumbnailSize: thumb.element.frame?.size, windows: fresh, matched: target)
+            NSSound.beep()
+        }
         // Mission Control updates its thumbnails on its own; the next tick picks up the change.
     }
 

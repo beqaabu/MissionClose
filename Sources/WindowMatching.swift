@@ -35,6 +35,10 @@ enum WindowMatching {
             { $0.liveTitle.hasPrefix(label) },
             // ...and the reverse: a label that carries a suffix the window's own title doesn't.
             { !$0.title.isEmpty && label.hasPrefix($0.title) },
+            // Mission Control shortens long titles by cutting out the middle:
+            // "beqaabu/MissionClose: Close w…from Mission Control on macOS".
+            { matchesElided(label: label, title: $0.title) },
+            { matchesElided(label: label, title: $0.liveTitle) },
             { !$0.appName.isEmpty && $0.appName == label },
         ]
         for rule in rules {
@@ -43,6 +47,20 @@ enum WindowMatching {
             return matches.min { closeness(candidates[$0], thumbnailAspect) < closeness(candidates[$1], thumbnailAspect) }
         }
         return nil
+    }
+
+    /// True when `title` could have been shortened into `label` by replacing its middle with "…".
+    /// The tail is searched for rather than anchored at the end, because window titles often carry a
+    /// suffix the thumbnail drops, such as " - Brave".
+    static func matchesElided(label: String, title: String) -> Bool {
+        let parts = label.components(separatedBy: "…")
+        guard parts.count == 2, !title.isEmpty else { return false }
+        let head = parts[0], tail = parts[1]
+        guard title.count > label.count - 1 else { return false } // a shortened title is longer than its label
+        guard head.isEmpty || title.hasPrefix(head) else { return false }
+        guard !tail.isEmpty else { return true }
+        // The tail has to come after the head, not overlap it.
+        return title.dropFirst(head.count).contains(tail)
     }
 
     private static func closeness(_ candidate: WindowCandidate, _ thumbnailAspect: CGFloat) -> CGFloat {

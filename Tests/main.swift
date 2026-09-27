@@ -48,6 +48,26 @@ check(WindowMatching.bestMatch(label: "Calculator", thumbnailAspect: 0.75, in: b
 check(WindowMatching.bestMatch(label: "Nothing here", thumbnailAspect: 1.5, in: two) == nil, "returns nil when nothing matches")
 check(WindowMatching.bestMatch(label: "", thumbnailAspect: 1.5, in: two) == nil, "returns nil for an empty label")
 
+// Mission Control elides long titles in the middle; browsers hit this constantly.
+let brave = [
+    WindowCandidate(title: "სანიოლის 2 ტყუილი და რას შეცვლის სვანაძე? | ც9 - YouTube - Brave", size: size(1512, 949)),
+    WindowCandidate(title: "beqaabu/MissionClose: Close windows straight from Mission Control on macOS - Brave", size: size(1512, 949)),
+    WindowCandidate(title: "r/MacApps - Brave", size: size(1512, 949)),
+]
+check(WindowMatching.bestMatch(label: "beqaabu/MissionClose: Close w…from Mission Control on macOS",
+                               thumbnailAspect: 1.59, in: brave) == 1, "matches a title elided in the middle")
+
+check(WindowMatching.matchesElided(label: "Quarterly re…report.pdf", title: "Quarterly revenue report.pdf"),
+      "head and tail both present")
+check(!WindowMatching.matchesElided(label: "Quarterly re…missing", title: "Quarterly revenue report.pdf"),
+      "tail that isn't in the title doesn't match")
+check(!WindowMatching.matchesElided(label: "Other doc…pdf", title: "Quarterly revenue report.pdf"),
+      "head that doesn't start the title doesn't match")
+check(!WindowMatching.matchesElided(label: "Report.pdf", title: "Report.pdf"),
+      "a label with no ellipsis isn't treated as elided")
+check(WindowMatching.matchesElided(label: "…settings.json", title: "~/Projects/app/settings.json"),
+      "handles a label elided only at the front")
+
 print("UpdateCheck")
 check(UpdateCheck.isNewer("0.3.0", than: "0.2.1"), "0.3.0 is newer than 0.2.1")
 check(UpdateCheck.isNewer("0.10.0", than: "0.9.9"), "0.10.0 is newer than 0.9.9 (not string order)")

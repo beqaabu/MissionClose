@@ -42,6 +42,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
             .target = self
+        menu.addItem(withTitle: "Reveal Diagnostics Log", action: #selector(revealLog), keyEquivalent: "")
+            .target = self
         menu.addItem(withTitle: "About MissionClose", action: #selector(showWelcome), keyEquivalent: "")
             .target = self
         loginItem.target = self
@@ -115,6 +117,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func checkForUpdates() {
         UpdateCheck.run()
+    }
+
+    @objc private func revealLog() {
+        if !FileManager.default.fileExists(atPath: Diagnostics.logURL.path) {
+            Diagnostics.log("Log created. Failures (a beep instead of an action) are recorded here.")
+        }
+        NSWorkspace.shared.activateFileViewerSelecting([Diagnostics.logURL])
     }
 
     @objc private func showWelcome() {
