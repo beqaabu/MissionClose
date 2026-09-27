@@ -1,28 +1,37 @@
-# MissionClose
+<h1 align="center">MissionClose</h1>
 
-[![CI](https://github.com/beqaabu/MissionClose/actions/workflows/ci.yml/badge.svg)](https://github.com/beqaabu/MissionClose/actions/workflows/ci.yml)
+<p align="center">
+  <b>Close windows straight from Mission Control on macOS.</b><br>
+  <a href="https://beqaabu.github.io/MissionClose">Website</a> ·
+  <a href="../../releases/latest">Download</a> ·
+  <a href="#install">Install</a> ·
+  <a href="#how-it-works">How it works</a>
+</p>
 
-Close windows straight from Mission Control on macOS.
-
-**Website:** https://beqaabu.github.io/MissionClose
+<p align="center">
+  <a href="https://github.com/beqaabu/MissionClose/actions/workflows/ci.yml"><img src="https://github.com/beqaabu/MissionClose/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/beqaabu/MissionClose?color=%23ff5f57" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/macOS-13%2B-black" alt="macOS 13+">
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license">
+</p>
 
 ![Closing windows from Mission Control](site/demo.gif)
 
-Swipe up with three fingers (or press F3 / Ctrl+↑) and hover a window thumbnail: traffic-light buttons appear in its corner.
-No more opening a window just to hit its red button.
+Mission Control shows every window you have open, but won't let you touch them. To close one you have to
+open it first, hit its red button, then swipe up again.
 
-- **✕ close**: closes that window, same as its red traffic-light button
-- **Option-click ✕**: quits the whole app (the ✕ turns into ⏻ while Option is held)
-- **− minimize** and **⤢ full screen**: same as the yellow and green buttons
-- **⌘W / ⌘Q / ⌘M** while hovering a thumbnail: close the window / quit its app / minimize it
+MissionClose puts the traffic lights on the thumbnails. Swipe up with three fingers (or press <kbd>F3</kbd> /
+<kbd>⌃↑</kbd>), hover a window, and click.
 
-MissionClose lives in the menu bar and starts at login. From its menu you can set:
+| Action | Click | Keyboard (while hovering) |
+| --- | --- | --- |
+| Close the window | **✕** | <kbd>⌘W</kbd> |
+| Minimize it | **−** | <kbd>⌘M</kbd> |
+| Full screen | **⤢** | — |
+| Quit the whole app | <kbd>⌥</kbd> + **✕** (the ✕ becomes **⏻**) | <kbd>⌘Q</kbd> |
 
-- **Button Corner**: top left or top right of the thumbnail
-- **Button Size**: small, medium or large
-- **Show Buttons**: only on the hovered thumbnail, or on all of them
-- **Confirm Before Quitting Apps**: the first ⌥-click / ⌘Q arms the button, a second one within 3 seconds quits
-- **Launch at Login**
+The buttons stay hidden until Mission Control has settled and your fingers are off the trackpad, so they
+never flicker mid-swipe or catch a stray click.
 
 ## Install
 
@@ -30,65 +39,94 @@ MissionClose lives in the menu bar and starts at login. From its menu you can se
 brew install --cask beqaabu/tap/missionclose
 ```
 
-Or by hand:
+Or download `MissionClose.zip` from [the latest release](../../releases/latest), unzip it, and drag
+**MissionClose.app** to your Applications folder.
 
-1. Download `MissionClose-<version>.zip` from [Releases](../../releases), unzip it, and move `MissionClose.app` to `/Applications` or `~/Applications`.
-2. Open it. MissionClose isn't signed with an Apple Developer ID, so macOS blocks it the first time:
-   go to **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**.
-   (Or run `xattr -dr com.apple.quarantine /path/to/MissionClose.app` before opening it.)
-3. Grant **Accessibility** access when asked (**System Settings → Privacy & Security → Accessibility**).
-   MissionClose needs it to see Mission Control's thumbnails, catch clicks on the ✕, and press a window's close button.
+On first launch you'll need to clear two hurdles, once each:
 
-## Build from source
+1. **"Apple could not verify…"** — MissionClose isn't notarized (an Apple Developer account costs $99/year,
+   which is steep for a free utility). Open **System Settings → Privacy & Security**, scroll down and click
+   **Open Anyway**. Or run `xattr -dr com.apple.quarantine /Applications/MissionClose.app` beforehand.
+2. **Accessibility access** — approve the prompt, or add MissionClose under
+   **System Settings → Privacy & Security → Accessibility**. Without it the buttons never appear.
 
-Requires the Xcode Command Line Tools (`xcode-select --install`), macOS 13 or later.
+MissionClose then lives in the menu bar and starts at login.
+
+## Settings
+
+All from the menu bar icon:
+
+| Setting | Options |
+| --- | --- |
+| **Button Corner** | Top left or top right of the thumbnail |
+| **Button Size** | Small, medium or large |
+| **Show Buttons** | Only on the hovered window, or on all of them |
+| **Confirm Before Quitting Apps** | First <kbd>⌥</kbd>-click arms the button, a second within 3 seconds quits |
+| **Launch at Login** | On by default |
+
+## Privacy
+
+MissionClose makes no network connections at all: no analytics, no update checks, no crash reporting.
+Accessibility access lets it read the position and title of Mission Control's thumbnails and press a
+window's own buttons. It doesn't read window contents or keystrokes. The only thing it stores is your
+settings, in `~/Library/Preferences/com.beqa.MissionClose.plist`.
+
+## Uninstall
 
 ```sh
-./build.sh      # builds and installs to ~/Applications/MissionClose.app
-./release.sh    # also packages dist/MissionClose-<version>.zip
+brew uninstall --cask beqaabu/tap/missionclose
 ```
 
-The first build creates a self-signed code signing certificate in `signing/` (git-ignored).
-Signing every build with the same certificate keeps macOS from asking for Accessibility access again after each rebuild.
+Or quit it from the menu bar, drag the app to the Trash, and remove its entry from
+**System Settings → Privacy & Security → Accessibility**. To drop the settings too:
+`defaults delete com.beqa.MissionClose`.
 
-The app is a universal binary (Apple Silicon and Intel) for macOS 13 and later.
+## Troubleshooting
 
-## Releasing
+**No buttons appear.** Check the menu bar icon: it says whether Accessibility access is granted. After
+installing a new version you may have to remove the old entry in System Settings and add it again.
 
-**From GitHub:** Actions → **Release** → **Run workflow**, enter a version (e.g. `0.3.0`) and an optional summary.
-The workflow bumps `Info.plist`, builds and signs the app, commits the bump, tags it, and publishes a release
-whose notes are the summary plus the commits since the last release.
+**A button beeps instead of acting.** MissionClose couldn't work out which window the thumbnail belongs
+to. [Open an issue](../../issues) with the app and window title, and it'll get fixed.
 
-**From the command line:** bump `CFBundleShortVersionString` (and `CFBundleVersion`) in `Info.plist`, commit, then push an annotated tag:
-
-```sh
-git tag -a v0.3.0 -m "What's new in this release"
-git push origin main v0.3.0
-```
-
-Either way the [Release workflow](.github/workflows/release.yml) signs with the certificate stored in the `SIGNING_P12_BASE64`
-repository secret (base64 of `signing/id.p12`), so every release has the same signature and users keep their
-Accessibility permission across updates.
+**The buttons show up mid-swipe, or linger after one.** Tell me what gesture and hardware (trackpad, mouse,
+keyboard shortcut, hot corner), since the timing is inferred rather than reported by macOS.
 
 ## How it works
 
-macOS has no API for Mission Control, so MissionClose works from the outside:
+macOS has no public API for Mission Control, so MissionClose works from the outside:
 
-- **Is Mission Control open?** While it's on screen, the Dock's accessibility tree contains a group with the identifier `mc`;
-  its buttons are the window thumbnails, with their on-screen frames and window titles.
-- **When to show the ✕.** Thumbnails animate in and out and follow your fingers during a swipe,
-  so buttons only appear once no thumbnail has moved for a moment and no three-finger swipe is in progress (tracked from trackpad touch events).
-- **Clicking.** Mission Control takes mouse clicks itself, so a session event tap (enabled only while Mission Control is open)
-  catches clicks on a ✕ before Mission Control sees them.
-- **Closing.** The thumbnail is matched to a real window by title (falling back to app name and aspect ratio),
-  and that window's close button is pressed (or it's minimized / made full screen) through the accessibility API.
+- **Is Mission Control open?** While it's on screen, the Dock's accessibility tree contains a group with the
+  identifier `mc`, whose buttons are the window thumbnails, with their on-screen frames and titles.
+- **When to show the buttons.** Nothing reports that Mission Control finished animating, so the app waits
+  until no thumbnail has moved for two polls and no three-finger swipe is in progress, which it tracks from
+  trackpad touch events.
+- **Catching clicks.** Mission Control handles mouse clicks itself, so floating buttons never receive them.
+  A session event tap, enabled only while Mission Control is open, sees clicks first and swallows the ones
+  that land on a button.
+- **Acting on the window.** The thumbnail is matched to a real window by title (with fallbacks for titles
+  that don't match exactly, plus aspect ratio as a tie-breaker), and that window's own close, minimize or
+  full-screen button is pressed through the accessibility API.
+
+One dead end worth recording: macOS sends private "dock swipe" events (type 30) that carry a gesture's phase
+and progress, which would be a perfect signal. But any event tap on that type, even a listen-only one, stops
+an auto-hidden Dock from sliding up on hover. Hence the finger counting.
 
 ## Limitations
 
-- Relies on undocumented details of how the Dock exposes Mission Control, so a macOS update could break it. Built and tested on macOS 26.
-- Two windows with the same title in different apps can occasionally be confused; aspect ratio is used as a tie-breaker.
-- Windows on other Spaces aren't shown in Mission Control's main view, so they can't be closed from there.
+- It leans on undocumented details of how the Dock exposes Mission Control, so a macOS update could break it.
+  Built and tested on macOS 26.
+- Two windows with the same title in different apps can occasionally be confused; aspect ratio breaks the tie.
+- Mission Control's main view only shows windows on the current Space, so others can't be reached from there.
+- Full screen has to leave Mission Control first, because macOS aborts the transition otherwise.
+
+## Contributing
+
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for building from source,
+the code layout, and how releases are cut.
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE).
+
+Mission Control and macOS are trademarks of Apple Inc. MissionClose is not affiliated with Apple.
