@@ -1,21 +1,28 @@
 import Cocoa
 
 enum MissionControl {
-    static var dockPID: pid_t? {
-        NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first?.processIdentifier
+    /// The processes that may host the overview's accessibility tree: the Dock up to macOS 15,
+    /// WindowManager on macOS 27 (the Dock no longer exposes the overview there).
+    private static var hostPIDs: [pid_t] {
+        ["com.apple.dock", "com.apple.WindowManager"].compactMap {
+            NSRunningApplication.runningApplications(withBundleIdentifier: $0).first?.processIdentifier
+        }
     }
 
-    /// The Dock exposes one of these groups only while that overview is on screen:
-    /// "mc" for Mission Control, "appexpose" for App Exposé (three-finger swipe down / ⌃↓).
-    /// Both lay out window thumbnails the same way, so everything else treats them alike.
-    private static let overviewIdentifiers = ["mc", "appexpose"]
+    /// A host exposes one of these groups only while that overview is on screen: "mc" for Mission
+    /// Control, "appexpose" for App Exposé (three-finger swipe down / ⌃↓). WindowManager names them
+    /// "mc.display" / "appexpose.display". Both lay out window thumbnails the same way, so everything
+    /// else treats them alike.
+    private static let overviewIdentifiers = ["mc", "appexpose", "mc.display", "appexpose.display"]
 
     static func root() -> AXUIElement? {
-        guard let pid = dockPID else { return nil }
-        return AXUIElementCreateApplication(pid).children.first {
-            guard let identifier = $0.identifier else { return false }
-            return overviewIdentifiers.contains(identifier)
+        for pid in hostPIDs {
+            if let group = AXUIElementCreateApplication(pid).children.first(where: {
+                guard let identifier = $0.identifier else { return false }
+                return overviewIdentifiers.contains(identifier)
+            }) { return group }
         }
+        return nil
     }
 
     /// Window thumbnails: the buttons in the overview, skipping Mission Control's Spaces bar.

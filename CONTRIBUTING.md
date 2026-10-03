@@ -23,7 +23,7 @@ Accessibility permission after each rebuild. Ad-hoc signatures change every time
 | File | What's in it |
 | --- | --- |
 | `Sources/AX.swift` | Thin wrappers over the accessibility API, and AX ↔ Cocoa coordinate conversion |
-| `Sources/MissionControl.swift` | Finding Mission Control in the Dock's accessibility tree and its thumbnails |
+| `Sources/MissionControl.swift` | Finding Mission Control in the Dock's (macOS 27: WindowManager's) accessibility tree and its thumbnails |
 | `Sources/WindowIndex.swift` | Every on-screen window, gathered through the accessibility API |
 | `Sources/WindowMatching.swift` | The rules that decide which window a thumbnail belongs to (unit-tested) |
 | `Sources/Welcome.swift` | First-run window explaining the Accessibility requirement |
