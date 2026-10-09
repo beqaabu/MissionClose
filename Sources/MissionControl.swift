@@ -1,8 +1,8 @@
 import Cocoa
 
 enum MissionControl {
-    /// The processes that may host the overview's accessibility tree: the Dock up to macOS 15,
-    /// WindowManager on macOS 27 (the Dock no longer exposes the overview there).
+    /// The processes that may host the overview's accessibility tree: the Dock up to macOS 26,
+    /// WindowManager on macOS 27.
     private static var hostPIDs: [pid_t] {
         ["com.apple.dock", "com.apple.WindowManager"].compactMap {
             NSRunningApplication.runningApplications(withBundleIdentifier: $0).first?.processIdentifier
@@ -15,11 +15,15 @@ enum MissionControl {
     /// else treats them alike.
     private static let overviewIdentifiers = ["mc", "appexpose", "mc.display", "appexpose.display"]
 
+    /// On macOS 27 the Dock still exposes an empty "mc" group while WindowManager holds the
+    /// thumbnails, so a group only counts if it has children.
     static func root() -> AXUIElement? {
         for pid in hostPIDs {
-            if let group = AXUIElementCreateApplication(pid).children.first(where: {
-                guard let identifier = $0.identifier else { return false }
-                return overviewIdentifiers.contains(identifier)
+            let host = AXUIElementCreateApplication(pid)
+            AXUIElementSetMessagingTimeout(host, 0.5) // polled on the main thread; don't let a hung host stall it
+            if let group = host.children.first(where: {
+                guard let identifier = $0.identifier, overviewIdentifiers.contains(identifier) else { return false }
+                return !$0.children.isEmpty
             }) { return group }
         }
         return nil
