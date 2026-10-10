@@ -68,7 +68,9 @@ All from the menu bar icon:
 
 ## Privacy
 
-MissionClose makes no network connections at all: no analytics, no update checks, no crash reporting.
+MissionClose makes no network connections on its own: no analytics, no automatic update checks, no crash
+reporting. The only request is **Check for Updates…** in the menu, which asks GitHub for the latest release
+when you click it.
 Accessibility access lets it read the position and title of Mission Control's thumbnails and press a
 window's own buttons. It doesn't read window contents or keystrokes. The only thing it stores is your
 settings, in `~/Library/Preferences/com.beqa.MissionClose.plist`.
@@ -100,7 +102,9 @@ macOS has no public API for Mission Control, so MissionClose works from the outs
 
 - **Is an overview open?** While Mission Control is on screen, the Dock's accessibility tree contains a group
   with the identifier `mc`, whose buttons are the window thumbnails, with their on-screen frames and titles.
-  App Exposé produces the same shape under `appexpose`, so both are handled by the same code.
+  App Exposé produces the same shape under `appexpose`, so both are handled by the same code. On macOS 27 the
+  thumbnails moved to WindowManager (`mc.display`, `appexpose.display`), while the Dock keeps an empty `mc`
+  group, so only a group that actually has children counts.
 - **When to show the buttons.** Nothing reports that Mission Control finished animating, so the app waits
   until no thumbnail has moved for two polls and no three-finger swipe is in progress, which it tracks from
   trackpad touch events.
@@ -117,8 +121,8 @@ an auto-hidden Dock from sliding up on hover. Hence the finger counting.
 
 ## Limitations
 
-- It leans on undocumented details of how the Dock exposes Mission Control, so a macOS update could break it.
-  Built and tested on macOS 26.
+- It leans on undocumented details of how macOS exposes Mission Control, so a macOS update could break it
+  (macOS 27 did, until 0.3.1). Built and tested on macOS 26 and 27.
 - Two windows with the same title in different apps can occasionally be confused; aspect ratio breaks the tie.
 - Mission Control's main view only shows windows on the current Space, so others can't be reached from there.
 - Long titles are shortened by Mission Control ("Some very lo…document.pdf"), which is handled, but a window

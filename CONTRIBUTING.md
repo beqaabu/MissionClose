@@ -88,6 +88,7 @@ has to grant Accessibility again after the next update.
 - Don't tap event type 30 (the Dock's private swipe events). Any tap on it, even listen-only, breaks
   the auto-hidden Dock's hover reveal.
 - Mission Control and App Exposé appear in the Dock's accessibility tree as `mc` and `appexpose`, with the
-  same layout. `tools/record-demo.sh --watch-expose` dumps that tree while you trigger an overview by hand,
-  which is how new macOS versions can be checked.
+  same layout. On macOS 27 they're in WindowManager's tree as `mc.display` and `appexpose.display`, and the
+  Dock's `mc` group is still there but empty. `tools/record-demo.sh --watch-expose` dumps that tree while
+  you trigger an overview by hand, which is how new macOS versions can be checked.
 - CI builds every push and pull request on a macOS runner, so keep the build free of Xcode-only steps.
