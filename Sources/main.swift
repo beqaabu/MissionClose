@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var sizeItems: [NSMenuItem] = []
     private var showItems: [NSMenuItem] = []
     private let confirmQuitItem = NSMenuItem(title: "Confirm Before Quitting Apps", action: #selector(toggleConfirmQuit), keyEquivalent: "")
+    private let autoUpdateItem = NSMenuItem(title: "Check Automatically (Daily)", action: #selector(toggleAutomaticUpdates), keyEquivalent: "")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
 
@@ -40,8 +41,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         confirmQuitItem.target = self
         menu.addItem(confirmQuitItem)
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
-            .target = self
+        let checkNow = NSMenuItem(title: "Check Now…", action: #selector(checkForUpdates), keyEquivalent: "")
+        checkNow.target = self
+        autoUpdateItem.target = self
+        menu.addItem(submenu("Updates", [checkNow, autoUpdateItem]))
         menu.addItem(withTitle: "Reveal Diagnostics Log", action: #selector(revealLog), keyEquivalent: "")
             .target = self
         menu.addItem(withTitle: "About MissionClose", action: #selector(showWelcome), keyEquivalent: "")
@@ -58,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         controller.start()
+        UpdateCheck.scheduleAutomaticChecks()
         WelcomeWindow.shared.showIfNeeded()
     }
 
@@ -70,6 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sizeItems.forEach { $0.state = $0.representedObject as? Int == Settings.buttonSize.rawValue ? .on : .off }
         showItems.forEach { $0.state = $0.representedObject as? Bool == Settings.alwaysShow ? .on : .off }
         confirmQuitItem.state = Settings.confirmQuit ? .on : .off
+        autoUpdateItem.state = UserDefaults.standard.bool(forKey: UpdateCheck.Key.automatic) ? .on : .off
     }
 
     private func item(_ title: String, _ action: Selector, _ value: Any) -> NSMenuItem {
@@ -116,7 +121,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func checkForUpdates() {
-        UpdateCheck.run()
+        UpdateCheck.run(userInitiated: true)
+    }
+
+    @objc private func toggleAutomaticUpdates() {
+        let defaults = UserDefaults.standard
+        defaults.set(!defaults.bool(forKey: UpdateCheck.Key.automatic), forKey: UpdateCheck.Key.automatic)
+        UpdateCheck.scheduleAutomaticChecks()
     }
 
     @objc private func revealLog() {
