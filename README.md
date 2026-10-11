@@ -65,13 +65,15 @@ All from the menu bar icon:
 | **Button Size** | Small, medium or large |
 | **Show Buttons** | Only on the hovered window, or on all of them |
 | **Confirm Before Quitting Apps** | First <kbd>⌥</kbd>-click arms the button, a second within 3 seconds quits |
+| **Updates** | **Check Now…**, and **Check Automatically (Daily)**, off by default |
 | **Launch at Login** | On by default |
 
 ## Privacy
 
-MissionClose makes no network connections on its own: no analytics, no automatic update checks, no crash
-reporting. The only request is **Check for Updates…** in the menu, which asks GitHub for the latest release
-when you click it.
+MissionClose makes no network connections on its own: no analytics, no crash reporting. The only request
+asks GitHub for the latest release, and only when you click **Updates → Check Now…** in the menu or turn on
+**Updates → Check Automatically (Daily)** (off by default; it then checks once a day and mentions each new
+version once). Homebrew installs are told to `brew upgrade --cask missionclose` instead of downloading.
 Accessibility access lets it read the position and title of Mission Control's thumbnails and press a
 window's own buttons. It doesn't read window contents or keystrokes. The only thing it stores is your
 settings, in `~/Library/Preferences/com.beqa.MissionClose.plist`.
