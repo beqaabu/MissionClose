@@ -91,7 +91,7 @@ jobs:
           fi
           cat >> notes.md <<'NOTES'
 
-          **Install:** unzip, move `MissionClose.app` to Applications, open it. It isn't signed with an Apple Developer ID, so the first time macOS will block it: click **Open Anyway** in System Settings → Privacy & Security. Then grant Accessibility access when asked.
+          **Install:** `brew trust --tap beqaabu/tap && brew install --cask beqaabu/tap/missionclose`, or unzip, move `MissionClose.app` to Applications and open it. It isn't signed with an Apple Developer ID, so the first time macOS will block it: click **Open Anyway** in System Settings → Privacy & Security. Then grant Accessibility access when asked.
           NOTES
 
       # Only after the build succeeded: commit the version bump and tag it.

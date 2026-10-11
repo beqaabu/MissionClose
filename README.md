@@ -38,6 +38,7 @@ never flicker mid-swipe or catch a stray click.
 ## Install
 
 ```sh
+brew trust --tap beqaabu/tap   # Homebrew 6+ asks you to trust third-party taps once
 brew install --cask beqaabu/tap/missionclose
 ```
 
