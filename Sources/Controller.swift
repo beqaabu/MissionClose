@@ -87,13 +87,14 @@ final class Controller {
     private func tick() {
         guard AXIsProcessTrusted() else { return clear() }
         installTapsIfNeeded()
-        guard let mc = MissionControl.root() else { return clear() }
+        let roots = MissionControl.roots()
+        guard !roots.isEmpty else { return clear() }
         setClickTapEnabled(true)
 
         if thumbs.isEmpty && windowIndex == nil { refreshWindowIndex() }
         let size = CGFloat(Settings.buttonSize.rawValue), corner = Settings.corner
         var next: [ElementKey: Thumb] = [:]
-        for element in MissionControl.thumbnails(in: mc) {
+        for element in roots.flatMap(MissionControl.thumbnails(in:)) {
             guard let frame = element.frame else { continue }
             let key = ElementKey(element: element)
             let panel = thumbs[key]?.panel ?? WindowButtonsPanel(size: size)

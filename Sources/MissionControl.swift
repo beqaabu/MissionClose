@@ -15,19 +15,23 @@ enum MissionControl {
     /// else treats them alike.
     private static let overviewIdentifiers = ["mc", "appexpose", "mc.display", "appexpose.display"]
 
-    /// On macOS 27 the Dock still exposes an empty "mc" group while WindowManager holds the
-    /// thumbnails, so a group only counts if it has children.
-    static func root() -> AXUIElement? {
+    /// One overview group per display that shows it (a display with several spaces and no windows
+    /// still has its Spaces bar). On macOS 27 the Dock still exposes an empty "mc" group while
+    /// WindowManager holds the thumbnails, so a group only counts if it has children.
+    static func roots() -> [AXUIElement] {
+        var groups: [AXUIElement] = []
         for pid in hostPIDs {
             let host = AXUIElementCreateApplication(pid)
             AXUIElementSetMessagingTimeout(host, 0.5) // polled on the main thread; don't let a hung host stall it
-            if let group = host.children.first(where: {
+            groups += host.children.filter {
                 guard let identifier = $0.identifier, overviewIdentifiers.contains(identifier) else { return false }
                 return !$0.children.isEmpty
-            }) { return group }
+            }
         }
-        return nil
+        return groups
     }
+
+    static func root() -> AXUIElement? { roots().first }
 
     /// Window thumbnails: the buttons in the overview, skipping Mission Control's Spaces bar.
     static func thumbnails(in mc: AXUIElement) -> [AXUIElement] {
